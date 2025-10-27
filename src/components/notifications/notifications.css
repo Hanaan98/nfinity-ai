@@ -1,0 +1,228 @@
+/* Notification Components Animations and Styles */
+
+/* Bell animation */
+@keyframes notificationBounce {
+  0%,
+  20%,
+  53%,
+  80%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%,
+  43% {
+    transform: translate3d(0, -10px, 0);
+  }
+  70% {
+    transform: translate3d(0, -5px, 0);
+  }
+  90% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+.notification-bell button.animate-bounce {
+  animation: notificationBounce 1s ease-in-out;
+}
+
+/* Badge pulse animation */
+@keyframes badgePulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.notification-bell .badge.animate-pulse {
+  animation: badgePulse 1s ease-in-out infinite;
+}
+
+/* Panel slide-in animation */
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.notification-panel {
+  animation: slideInFromTop 0.2s ease-out;
+}
+
+/* Notification item hover effects */
+.notification-item {
+  transition: all 0.2s ease-in-out;
+}
+
+.notification-item:hover {
+  transform: translateX(2px);
+}
+
+/* Unread indicator glow */
+@keyframes unreadGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+  }
+}
+
+.notification-item.unread .unread-indicator {
+  animation: unreadGlow 2s ease-in-out infinite;
+}
+
+/* Priority indicators */
+.priority-urgent {
+  border-left-color: #ef4444 !important;
+  background-color: rgba(239, 68, 68, 0.05) !important;
+}
+
+.priority-high {
+  border-left-color: #f97316 !important;
+  background-color: rgba(249, 115, 22, 0.05) !important;
+}
+
+.priority-medium {
+  border-left-color: #3b82f6 !important;
+  background-color: rgba(59, 130, 246, 0.05) !important;
+}
+
+.priority-low {
+  border-left-color: #6b7280 !important;
+  background-color: rgba(107, 114, 128, 0.05) !important;
+}
+
+/* Loading skeleton for notification items */
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+.notification-skeleton {
+  animation: shimmer 1.2s ease-in-out infinite;
+  background: linear-gradient(to right, #f6f7f8 8%, #edeef1 18%, #f6f7f8 33%);
+  background-size: 800px 104px;
+}
+
+/* Toast notification styles for dark theme */
+.Toastify__toast--dark {
+  background: #1d2328 !important;
+  color: #d8dcde !important;
+  border: 1px solid #293239 !important;
+}
+
+.Toastify__close-button--dark {
+  color: #d8dcde !important;
+  opacity: 0.7;
+}
+
+.Toastify__close-button--dark:hover {
+  opacity: 1;
+}
+
+/* Custom scrollbar for notification panel */
+.notification-panel .panel-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notification-panel .panel-body::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.notification-panel .panel-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.notification-panel .panel-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Dark theme scrollbar for notification panel */
+.dark .notification-panel .panel-body::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.dark .notification-panel .panel-body::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+.dark .notification-panel .panel-body::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Responsive notification panel */
+@media (max-width: 640px) {
+  .notification-panel {
+    width: 100vw;
+    max-width: 100vw;
+    right: -16px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+}
+
+/* Accessibility focus styles */
+.notification-bell button:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.notification-item:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .notification-item {
+    border: 1px solid;
+  }
+
+  .notification-bell .badge {
+    border: 2px solid;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .notification-bell button.animate-bounce {
+    animation: none;
+  }
+
+  .notification-bell .badge.animate-pulse {
+    animation: none;
+  }
+
+  .notification-panel {
+    animation: none;
+  }
+
+  .notification-item.unread .unread-indicator {
+    animation: none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .notification-bell,
+  .notification-panel {
+    display: none !important;
+  }
+}
