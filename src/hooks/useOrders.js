@@ -18,10 +18,9 @@ export function useOrders(initialParams = {}) {
     page: 1,
     limit: 20,
     search: "",
-    status: "all",
-    sortBy: "date",
-    sortOrder: "desc",
-    tag: "ai-order",
+    sortBy: "CREATED_AT", // Shopify sortKey format
+    sortOrder: "desc", // "asc" | "desc"
+    tag: "ai-order", // Only fetch AI-generated orders
     ...initialParams,
   });
 
@@ -32,18 +31,18 @@ export function useOrders(initialParams = {}) {
 
       let response;
 
-      // Use tag-specific endpoint if tag is provided, otherwise use general orders endpoint
-      if (params.tag) {
-        response = await chatApi.getOrdersByTag(params.tag, {
-          page: params.page,
-          limit: params.limit,
-          search: params.search,
-          sortBy: params.sortBy,
-          sortOrder: params.sortOrder,
-        });
-      } else {
-        response = await chatApi.getOrders(params);
-      }
+      // Map frontend sort params to Shopify format
+      const sortKey = params.sortBy || "CREATED_AT";
+      const reverse = params.sortOrder === "desc";
+
+      // Use tag-specific endpoint (required for AI orders)
+      response = await chatApi.getOrdersByTag(params.tag, {
+        page: params.page,
+        limit: params.limit,
+        search: params.search,
+        sortKey: sortKey, // Shopify format
+        reverse: reverse, // Shopify uses reverse instead of sortOrder
+      });
 
       if (response.success) {
         console.log("Orders API Response:", response);

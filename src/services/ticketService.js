@@ -27,26 +27,15 @@ async function ticketApiRequest(endpoint, options = {}) {
   const accessToken = getAccessToken();
   if (accessToken && !options.skipAuth) {
     config.headers.Authorization = `Bearer ${accessToken}`;
-    console.log("✅ Token added to ticket request");
-  } else if (!options.skipAuth) {
-    console.warn("⚠️ No access token available for ticket request");
   }
-
-  console.log(`Making ticket API request to: ${url}`, {
-    method: config.method || "GET",
-    hasAuth: !!config.headers.Authorization,
-    skipAuth: options.skipAuth,
-  });
 
   try {
     const response = await fetch(url, config);
-    console.log(`Ticket API response status: ${response.status}`);
 
     if (!response.ok) {
       let errorData;
       try {
         errorData = await response.json();
-        console.log("Ticket API error data:", errorData);
       } catch {
         errorData = {
           message: response.statusText || `HTTP ${response.status}`,
@@ -59,24 +48,16 @@ async function ticketApiRequest(endpoint, options = {}) {
         errorData.message ||
         `Request failed with status ${response.status}`;
 
-      console.error(
-        "Ticket API Error:",
-        errorMessage,
-        response.status,
-        errorData
-      );
       throw new TicketApiError(errorMessage, response.status, errorData);
     }
 
     const responseData = await response.json();
-    console.log("Ticket API success response:", responseData);
     return responseData;
   } catch (error) {
     if (error instanceof TicketApiError) {
       throw error;
     }
 
-    console.error("Ticket network error:", error);
     throw new TicketApiError(
       "Network error. Please check your connection and try again.",
       0,
@@ -107,7 +88,7 @@ export const ticketApi = {
    * @returns {Promise<Object>} Ticket details
    */
   async getTicket(identifier) {
-    return await ticketApiRequest(`/tickets/${identifier}`);
+    return await ticketApiRequest(`/tickets/${encodeURIComponent(identifier)}`);
   },
 
   /**
@@ -139,17 +120,20 @@ export const ticketApi = {
   },
 
   /**
-   * Add attachment to a ticket (public)
+   * Add attachment to ticket (public)
    * @param {string} identifier - Ticket ID or ticket number
    * @param {string} attachmentUrl - URL of the attachment
    * @returns {Promise<Object>} Updated ticket
    */
   async addAttachment(identifier, attachmentUrl) {
-    return await ticketApiRequest(`/tickets/${identifier}/attachments`, {
-      method: "POST",
-      body: JSON.stringify({ attachment_url: attachmentUrl }),
-      skipAuth: true, // Public endpoint
-    });
+    return await ticketApiRequest(
+      `/tickets/${encodeURIComponent(identifier)}/attachments`,
+      {
+        method: "POST",
+        body: JSON.stringify({ attachment_url: attachmentUrl }),
+        skipAuth: true, // Public endpoint
+      }
+    );
   },
 
   // ==================== ADMIN ENDPOINTS ====================
@@ -187,7 +171,7 @@ export const ticketApi = {
     if (shopify_order_id) params.append("shopify_order_id", shopify_order_id);
     if (search) params.append("search", search);
 
-    return await ticketApiRequest(`/tickets?${params.toString()}`);
+    return await ticketApiRequest(`/tickets/admin?${params.toString()}`);
   },
 
   /**
@@ -208,23 +192,29 @@ export const ticketApi = {
     if (resolution_notes) body.resolution_notes = resolution_notes;
     if (assigned_to) body.assigned_to = assigned_to;
 
-    return await ticketApiRequest(`/tickets/${identifier}/status`, {
-      method: "PATCH",
-      body: JSON.stringify(body),
-    });
+    return await ticketApiRequest(
+      `/tickets/${encodeURIComponent(identifier)}/status`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }
+    );
   },
 
   /**
-   * Assign ticket to an agent (admin)
+   * Assign ticket to agent (admin)
    * @param {string} identifier - Ticket ID or ticket number
    * @param {string} agentEmail - Agent email address
    * @returns {Promise<Object>} Updated ticket
    */
   async assignTicket(identifier, agentEmail) {
-    return await ticketApiRequest(`/tickets/${identifier}/assign`, {
-      method: "PATCH",
-      body: JSON.stringify({ agent_email: agentEmail }),
-    });
+    return await ticketApiRequest(
+      `/tickets/${encodeURIComponent(identifier)}/assign`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ agent_email: agentEmail }),
+      }
+    );
   },
 
   /**
@@ -244,14 +234,108 @@ export const ticketApi = {
   },
 
   /**
-   * Close/delete a ticket (admin)
+   * Update ticket priority (admin)
+   * @param {string} identifier - Ticket ID or ticket number
+   * @param {string} priority - New priority (low|medium|high|urgent)
+   * @returns {Promise<Object>} Updated ticket
+   */
+  async updateTicketPriority(identifier, priority) {
+    return await ticketApiRequest(
+      `/tickets/${encodeURIComponent(identifier)}/priority`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ priority }),
+      }
+    );
+  },
+
+  /**
+   * Update ticket type (admin)
+   * @param {string} identifier - Ticket ID or ticket number
+   * @param {string} issue_type - New issue type
+   * @returns {Promise<Object>} Updated ticket
+   */
+  async updateTicketType(identifier, issue_type) {
+    return await ticketApiRequest(
+      `/tickets/${encodeURIComponent(identifier)}/type`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ issue_type }),
+      }
+    );
+  },
+
+  /**
+   * Update ticket tags (admin)
+   * @param {string} identifier - Ticket ID or ticket number
+   * @param {Array<string>} tags - Array of tags
+   * @returns {Promise<Object>} Updated ticket
+   */
+  async updateTicketTags(identifier, tags) {
+    return await ticketApiRequest(
+      `/tickets/${encodeURIComponent(identifier)}/tags`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ tags }),
+      }
+    );
+  },
+
+  /**
+   * Close/Delete ticket (admin)
    * @param {string} identifier - Ticket ID or ticket number
    * @returns {Promise<Object>} Success message
    */
   async closeTicket(identifier) {
-    return await ticketApiRequest(`/tickets/${identifier}`, {
-      method: "DELETE",
-    });
+    return await ticketApiRequest(
+      `/tickets/${encodeURIComponent(identifier)}`,
+      {
+        method: "DELETE",
+      }
+    );
+  },
+
+  /**
+   * Get replies for a specific ticket
+   * @param {string} identifier - Ticket ID or ticket number
+   * @returns {Promise<Object>} Ticket replies
+   */
+  async getTicketReplies(identifier) {
+    return await ticketApiRequest(
+      `/tickets/${encodeURIComponent(identifier)}/replies`
+    );
+  },
+
+  /**
+   * Send a reply to a ticket (admin)
+   * @param {string} identifier - Ticket ID or ticket number
+   * @param {Object} replyData - Reply data
+   * @returns {Promise<Object>} Created reply
+   */
+  async sendReply(identifier, replyData) {
+    const {
+      message,
+      author_email,
+      author_name,
+      is_staff_reply = true,
+      is_public = true,
+      attachments = [],
+    } = replyData;
+
+    return await ticketApiRequest(
+      `/tickets/${encodeURIComponent(identifier)}/replies`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          message,
+          author_email,
+          author_name,
+          is_staff_reply,
+          is_public,
+          attachments,
+        }),
+      }
+    );
   },
 };
 

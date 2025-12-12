@@ -3,6 +3,7 @@ import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useChats } from "../hooks/useChats";
 import { useChatMessages } from "../hooks/useChatMessages";
+import { formatTimeAgo } from "../utils/messageHelpers";
 import ProductRecommendation from "../components/ProductRecommendation";
 import {
   ChatListSkeleton,
@@ -38,6 +39,8 @@ export default function Chats({
     updateParams,
     markAsRead,
     refresh,
+    lastUpdated,
+    isPolling,
   } = useChats({
     customerId,
     enablePolling,
@@ -45,17 +48,26 @@ export default function Chats({
   });
   // UI state
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [activeId, setActiveId] = useState(null);
 
-  // Update API params when UI filters change
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Update API params when filters or debounced query changes
   useEffect(() => {
     updateParams({
       page: 1, // Reset to first page when filters change
       filter: filter,
-      search: query,
+      search: debouncedQuery,
     });
-  }, [query, filter, updateParams]);
+  }, [debouncedQuery, filter, updateParams]);
 
   // Find active chat
   const activeChat = useMemo(
@@ -105,14 +117,26 @@ export default function Chats({
         >
           {/* Header */}
           <div className="px-4 py-3 border-b border-[#293239] flex-shrink-0 bg-[#1d2328]">
-            <h1 className="text-lg font-semibold">
-              {customerId ? "Customer Chats" : "Chats"}
-            </h1>
-            <p className="text-xs text-gray-400">
-              {customerId
-                ? `Viewing conversations for customer ${customerId}`
-                : "View customer conversations with the AI"}
-            </p>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h1 className="text-lg font-semibold">
+                  {customerId ? "Customer Chats" : "Chats"}
+                </h1>
+                <div className="flex items-center gap-3">
+                  <p className="text-xs text-gray-400">
+                    {customerId
+                      ? `Viewing conversations for customer ${customerId}`
+                      : "View customer conversations with the AI"}
+                  </p>
+                  {isPolling && lastUpdated && (
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                      <span>Live</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
             {customerId && (
               <div className="mt-3">

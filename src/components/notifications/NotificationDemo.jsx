@@ -1,6 +1,6 @@
 // src/components/notifications/NotificationDemo.jsx
 import React, { useState, useEffect } from "react";
-import { useNotifications } from "../../hooks/useNotifications";
+import useNotifications from "../../hooks/useNotifications";
 import { useChatPolling } from "../../hooks/useChatPolling";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";

@@ -19,6 +19,7 @@ export function useCustomers(initialParams = {}) {
     limit: 20,
     search: "",
     status: "all",
+    order: "DESC",
     ...initialParams,
   });
 
@@ -36,7 +37,6 @@ export function useCustomers(initialParams = {}) {
         throw new Error(response.message || "Failed to fetch customers");
       }
     } catch (err) {
-      console.error("Error fetching customers:", err);
       setError(
         err instanceof ApiError ? err.message : "Failed to load customers"
       );
@@ -70,7 +70,6 @@ export function useCustomers(initialParams = {}) {
         )
       );
     } catch (err) {
-      console.error("Error updating customer:", err);
       throw err;
     }
   }, []);

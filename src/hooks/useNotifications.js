@@ -1,5 +1,5 @@
 // src/hooks/useNotifications.js
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { notificationService } from "../services/notificationService";
 import { useAuth } from "../auth/AuthProvider";
 
@@ -7,17 +7,19 @@ import { useAuth } from "../auth/AuthProvider";
  * Hook for managing notifications with real-time updates
  * Handles both WebSocket notifications (for tickets) and REST API calls
  */
-export const useNotifications = () => {
+const useNotifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
+  const lastFetchTime = useRef(0);
+  const FETCH_DEBOUNCE_MS = 1000; // Prevent fetches within 1 second of each other
 
   // Initialize connection when authenticated
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated) {
       const token = localStorage.getItem("accessToken");
       if (token) {
         console.log("🔌 Connecting to notification service...");
@@ -29,7 +31,7 @@ export const useNotifications = () => {
       // Don't disconnect immediately as other components might be using it
       // The service will handle cleanup when the user logs out
     };
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated]);
 
   // Set up event listeners
   useEffect(() => {
@@ -126,6 +128,14 @@ export const useNotifications = () => {
   const fetchNotifications = useCallback(
     async (page = 1, limit = 20) => {
       if (!isAuthenticated) return;
+
+      // Debounce to prevent rapid successive calls
+      const now = Date.now();
+      if (now - lastFetchTime.current < FETCH_DEBOUNCE_MS) {
+        console.log("Fetch debounced - too soon after last fetch");
+        return;
+      }
+      lastFetchTime.current = now;
 
       setLoading(true);
       setError(null);

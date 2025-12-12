@@ -27,23 +27,16 @@ function useIndeterminate(checkedSome, checkedAll) {
 }
 
 function buildAdminOrderUrl(orderId, adminBaseUrl) {
-  // Debug: log the inputs
-  console.log("buildAdminOrderUrl called with:", { orderId, adminBaseUrl });
-
   // Prefer explicit baseUrl prop, else env var like: yourstore.myshopify.com
   const shop = adminBaseUrl || import.meta.env.VITE_SHOPIFY_SHOP;
-  console.log("Shop URL from env:", import.meta.env.VITE_SHOPIFY_SHOP);
 
   if (!shop || shop === "your-shop-name.myshopify.com") {
-    console.warn(
-      "Shopify shop URL not configured. Please set VITE_SHOPIFY_SHOP in .env file"
-    );
-    return "#";
+    // Return null to indicate no URL available (will hide link in UI)
+    return null;
   }
 
   if (!orderId) {
-    console.warn("No Shopify order ID provided for admin URL");
-    return "#";
+    return null;
   }
 
   // Extract numeric ID from GraphQL ID format if needed
@@ -61,12 +54,38 @@ function buildAdminOrderUrl(orderId, adminBaseUrl) {
 
   // Shopify Admin order URL accepts numeric id
   const adminUrl = `${base.replace(/\/$/, "")}/admin/orders/${numericOrderId}`;
-  console.log("Generated admin URL:", adminUrl);
   return adminUrl;
 }
 
-function fmtMoney(cents) {
-  return `$${(cents / 100).toFixed(2)}`;
+function formatPrice(order) {
+  // Use backend's formatted price if available
+  if (order.formattedTotalPrice) {
+    return order.formattedTotalPrice;
+  }
+
+  // Fallback: handle different price formats
+  if (order.totalPrice) {
+    if (typeof order.totalPrice === "object" && order.totalPrice.amount) {
+      // Shopify format: { amount: 150.00, currency: "USD" }
+      return `${
+        order.totalPrice.currency || "USD"
+      } ${order.totalPrice.amount.toFixed(2)}`;
+    }
+    if (typeof order.totalPrice === "number") {
+      // Already a number in dollars
+      return `$${order.totalPrice.toFixed(2)}`;
+    }
+  }
+
+  // Final fallback
+  if (order.total) {
+    if (typeof order.total === "number") {
+      return `$${order.total.toFixed(2)}`;
+    }
+    return order.total;
+  }
+
+  return "N/A";
 }
 
 function formatOrderNumber(orderNumber) {
@@ -112,8 +131,8 @@ export default function Orders({ adminBaseUrl }) {
 
   // UI state
   const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState("date"); // "date" | "number"
-  const [sortAsc, setSortAsc] = useState(false);
+  const [sortBy, setSortBy] = useState("CREATED_AT"); // Shopify sortKey format
+  const [sortOrder, setSortOrder] = useState("desc"); // "asc" | "desc"
 
   // selection
   const [checked, setChecked] = useState({}); // id -> boolean
@@ -123,41 +142,21 @@ export default function Orders({ adminBaseUrl }) {
     updateParams({
       page: 1,
       search: query,
-      sortBy: sortKey,
-      sortOrder: sortAsc ? "asc" : "desc",
+      sortBy: sortBy,
+      sortOrder: sortOrder,
     });
-  }, [query, sortKey, sortAsc, updateParams]);
+  }, [query, sortBy, sortOrder, updateParams]);
 
   // Handle pagination
   const handlePageChange = (newPage) => {
     updateParams({ page: newPage });
   };
 
-  // Client-side sorting for display (API should handle this, but as fallback)
-  const sortedOrders = useMemo(() => {
-    const sorted = [...(orders || [])];
-    sorted.sort((a, b) => {
-      if (sortKey === "number") {
-        const na = parseInt(
-          String(a.orderNumber || a.name || "").replace(/\D/g, "") || "0",
-          10
-        );
-        const nb = parseInt(
-          String(b.orderNumber || b.name || "").replace(/\D/g, "") || "0",
-          10
-        );
-        return sortAsc ? na - nb : nb - na;
-      }
-      // date
-      const da = new Date(a.createdAt).getTime();
-      const db = new Date(b.createdAt).getTime();
-      return sortAsc ? da - db : db - da;
-    });
-    return sorted;
-  }, [orders, sortKey, sortAsc]);
+  // Use orders directly from API (backend handles sorting)
+  const displayOrders = orders || [];
 
   // selection helpers
-  const pageIds = sortedOrders.map((o) => o.id);
+  const pageIds = displayOrders.map((o) => o.id);
   const allOnPageChecked =
     pageIds.length > 0 && pageIds.every((id) => checked[id]);
   const someOnPageChecked =
@@ -170,11 +169,14 @@ export default function Orders({ adminBaseUrl }) {
     setChecked(next);
   };
 
-  const toggleSortKey = (key) => {
-    if (sortKey === key) setSortAsc((s) => !s);
-    else {
-      setSortKey(key);
-      setSortAsc(key === "date" ? false : true); // default: newest first; lowest order# first
+  const toggleSort = (key) => {
+    if (sortBy === key) {
+      // Toggle order if same key
+      setSortOrder((s) => (s === "asc" ? "desc" : "asc"));
+    } else {
+      // New key - set default order
+      setSortBy(key);
+      setSortOrder(key === "CREATED_AT" ? "desc" : "asc"); // newest first for date, A-Z for order number
     }
   };
 
@@ -287,18 +289,27 @@ export default function Orders({ adminBaseUrl }) {
             <div className="flex items-center gap-2">
               <button
                 className={BTN}
-                onClick={() => toggleSortKey("date")}
+                onClick={() => toggleSort("CREATED_AT")}
                 title="Sort by date"
               >
-                Sort: Date {sortKey === "date" ? (sortAsc ? "↑" : "↓") : ""}
+                Sort: Date{" "}
+                {sortBy === "CREATED_AT"
+                  ? sortOrder === "asc"
+                    ? "↑"
+                    : "↓"
+                  : ""}
               </button>
               <button
                 className={BTN}
-                onClick={() => toggleSortKey("number")}
+                onClick={() => toggleSort("ORDER_NUMBER")}
                 title="Sort by order number"
               >
                 Sort: Order #{" "}
-                {sortKey === "number" ? (sortAsc ? "↑" : "↓") : ""}
+                {sortBy === "ORDER_NUMBER"
+                  ? sortOrder === "asc"
+                    ? "↑"
+                    : "↓"
+                  : ""}
               </button>
             </div>
           </div>
@@ -330,7 +341,7 @@ export default function Orders({ adminBaseUrl }) {
                       checked={allOnPageChecked}
                     />
                     <button
-                      onClick={() => toggleSortKey("number")}
+                      onClick={() => toggleSort("ORDER_NUMBER")}
                       className="inline-flex items-center gap-1 hover:text-gray-200"
                       title="Sort by order number"
                     >
@@ -358,7 +369,7 @@ export default function Orders({ adminBaseUrl }) {
 
               {/* body */}
               <ul className={`divide-y ${borderClass}`}>
-                {sortedOrders.map((order, index) => (
+                {displayOrders.map((order, index) => (
                   <div
                     key={order.id}
                     className="animate-fade-in-up"
@@ -375,11 +386,11 @@ export default function Orders({ adminBaseUrl }) {
                   </div>
                 ))}
 
-                {!loading && sortedOrders.length === 0 && (
+                {!loading && displayOrders.length === 0 && (
                   <li className="px-4 py-12">
                     <EmptyState
-                      title="No orders found"
-                      message="No orders match your current search criteria. Try adjusting your filters or search terms."
+                      title="No AI orders found"
+                      message="No AI-generated orders match your search. Orders placed through the AI chatbot will appear here."
                       icon={
                         <svg
                           fill="none"
@@ -402,13 +413,9 @@ export default function Orders({ adminBaseUrl }) {
               {/* footer / pagination */}
               <div className="px-4 py-3 flex items-center justify-between border-t border-[#293239]">
                 <p className="text-xs text-gray-400">
-                  Showing {sortedOrders.length} of {pagination.totalOrders || 0}{" "}
-                  orders
-                  {pagination.totalOrders === 0 && sortedOrders.length > 0 && (
-                    <span className="text-amber-400 ml-1">
-                      (API pagination data missing)
-                    </span>
-                  )}
+                  Showing {displayOrders.length} of{" "}
+                  {pagination.totalOrders || displayOrders.length} AI orders on
+                  this page
                 </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -448,13 +455,16 @@ export default function Orders({ adminBaseUrl }) {
 }
 
 function OrderRow({ order, checked, onCheck, adminBaseUrl }) {
-  // Debug: log the order data structure
-  console.log("OrderRow received order data:", order);
-
   const adminUrl = buildAdminOrderUrl(
-    order.shopifyOrderId || order.shopifyId,
+    order.shopifyOrderId || order.shopifyId || order.id,
     adminBaseUrl
   );
+
+  // Get properly formatted price
+  const formattedPrice = formatPrice(order);
+
+  // Get currency
+  const currency = order.totalPrice?.currency || order.currency || "USD";
 
   return (
     <li className={`px-4 py-3 hover:bg-white/2 border-b ${borderClass}`}>
@@ -473,26 +483,35 @@ function OrderRow({ order, checked, onCheck, adminBaseUrl }) {
               <span className="truncate text-sm text-blue-400">
                 {formatOrderNumber(order.orderNumber || order.name)}
               </span>
-              <a
-                href={adminUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-[#293239] bg-white/5 text-gray-300 hover:bg-white/10"
-                title="View in Shopify Admin"
-              >
-                <svg
-                  className="w-3.5 h-3.5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
+              {adminUrl ? (
+                <a
+                  href={adminUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-[#293239] bg-white/5 text-gray-300 hover:bg-white/10 transition-colors"
+                  title="View in Shopify Admin"
                 >
-                  <path d="M18 13v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                  <path d="M15 3h6v6" />
-                  <path d="M10 14L21 3" />
-                </svg>
-                View
-              </a>
+                  <svg
+                    className="w-3.5 h-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  >
+                    <path d="M18 13v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <path d="M15 3h6v6" />
+                    <path d="M10 14L21 3" />
+                  </svg>
+                  View
+                </a>
+              ) : (
+                <span
+                  className="text-[11px] px-1.5 py-0.5 text-gray-500"
+                  title="Shopify shop URL not configured"
+                >
+                  No link
+                </span>
+              )}
             </div>
             <div className="text-[11px] text-gray-500">
               Shopify ID:{" "}
@@ -515,14 +534,7 @@ function OrderRow({ order, checked, onCheck, adminBaseUrl }) {
 
         {/* total */}
         <div className="col-span-2 md:col-span-2">
-          <div className="text-sm text-gray-200">
-            {typeof order.total === "number"
-              ? fmtMoney(order.total)
-              : order.total}{" "}
-            <span className="text-xs text-gray-500">
-              {order.currency || "USD"}
-            </span>
-          </div>
+          <div className="text-sm text-gray-200">{formattedPrice}</div>
         </div>
 
         {/* status + created */}

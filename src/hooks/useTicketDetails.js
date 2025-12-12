@@ -203,6 +203,192 @@ export function useTicketDetails(ticketIdentifier) {
   }, [fetchTicket]);
 
   /**
+   * Update ticket priority
+   * @param {string} priority - New priority
+   * @returns {Promise<boolean>} Success status
+   */
+  const updatePriority = useCallback(
+    async (priority) => {
+      if (!ticket) return false;
+
+      setUpdating(true);
+      setError(null);
+
+      try {
+        console.log("Updating ticket priority:", priority);
+        const response = await ticketApi.updateTicketPriority(
+          ticket.ticket_number || ticket.id,
+          priority
+        );
+
+        if (response.success) {
+          setTicket(response.data || response.ticket);
+          return true;
+        } else {
+          throw new Error(response.error || "Failed to update priority");
+        }
+      } catch (err) {
+        console.error("Error updating ticket priority:", err);
+        setError(err.message || "Failed to update priority");
+        return false;
+      } finally {
+        setUpdating(false);
+      }
+    },
+    [ticket]
+  );
+
+  /**
+   * Update ticket type
+   * @param {string} issue_type - New issue type
+   * @returns {Promise<boolean>} Success status
+   */
+  const updateType = useCallback(
+    async (issue_type) => {
+      if (!ticket) return false;
+
+      setUpdating(true);
+      setError(null);
+
+      try {
+        console.log("Updating ticket type:", issue_type);
+        const response = await ticketApi.updateTicketType(
+          ticket.ticket_number || ticket.id,
+          issue_type
+        );
+
+        if (response.success) {
+          setTicket(response.data || response.ticket);
+          return true;
+        } else {
+          throw new Error(response.error || "Failed to update type");
+        }
+      } catch (err) {
+        console.error("Error updating ticket type:", err);
+        setError(err.message || "Failed to update type");
+        return false;
+      } finally {
+        setUpdating(false);
+      }
+    },
+    [ticket]
+  );
+
+  /**
+   * Send a reply to the ticket
+   * @param {Object} replyData - Reply data
+   * @returns {Promise<Object|null>} Created reply or null if failed
+   */
+  const sendReply = useCallback(
+    async (replyData) => {
+      if (!ticket) return null;
+
+      setUpdating(true);
+      setError(null);
+
+      try {
+        console.log("Sending reply to ticket:", replyData);
+        const response = await ticketApi.sendReply(
+          ticket.ticket_number || ticket.id,
+          replyData
+        );
+
+        if (response.success) {
+          // Refresh ticket data to get updated replies
+          await fetchTicket();
+          return response.data || response.reply;
+        } else {
+          throw new Error(response.error || "Failed to send reply");
+        }
+      } catch (err) {
+        console.error("Error sending reply:", err);
+        setError(err.message || "Failed to send reply");
+        return null;
+      } finally {
+        setUpdating(false);
+      }
+    },
+    [ticket, fetchTicket]
+  );
+
+  /**
+   * Load replies for the ticket
+   * @returns {Promise<Array>} Array of replies
+   */
+  const loadReplies = useCallback(async () => {
+    if (!ticket) return [];
+
+    try {
+      console.log(
+        "Loading replies for ticket:",
+        ticket.ticket_number || ticket.id
+      );
+      const response = await ticketApi.getTicketReplies(
+        ticket.ticket_number || ticket.id
+      );
+
+      if (response.success) {
+        const replies = response.data || response.replies || [];
+        console.log("Loaded replies:", replies);
+        return replies;
+      } else {
+        throw new Error(response.error || "Failed to load replies");
+      }
+    } catch (err) {
+      console.error("Error loading replies:", err);
+      return [];
+    }
+  }, [ticket]);
+
+  /**
+   * Update ticket tags
+   * @param {Array<string>} tags - Array of tags
+   * @returns {Promise<boolean>} Success status
+   */
+  const updateTags = useCallback(
+    async (tags) => {
+      if (!ticket) return false;
+
+      setUpdating(true);
+      setError(null);
+
+      try {
+        console.log("Updating ticket tags:", tags);
+        const response = await ticketApi.updateTicketTags(
+          ticket.ticket_number || ticket.id,
+          tags
+        );
+
+        if (response.success) {
+          // Merge the response with existing ticket data to preserve all fields
+          const updatedTicket = response.data || response.ticket;
+          setTicket(prevTicket => ({
+            ...prevTicket,
+            ...updatedTicket,
+            tags: updatedTicket.tags,
+            // Preserve parsed fields that might not come from API
+            parsedTags: Array.isArray(updatedTicket.tags) 
+              ? updatedTicket.tags 
+              : (typeof updatedTicket.tags === 'string' ? JSON.parse(updatedTicket.tags) : []),
+            parsedAttachments: prevTicket.parsedAttachments,
+            parsedMetadata: prevTicket.parsedMetadata,
+          }));
+          return true;
+        } else {
+          throw new Error(response.error || "Failed to update tags");
+        }
+      } catch (err) {
+        console.error("Error updating ticket tags:", err);
+        setError(err.message || "Failed to update tags");
+        return false;
+      } finally {
+        setUpdating(false);
+      }
+    },
+    [ticket]
+  );
+
+  /**
    * Update local ticket data (for optimistic updates)
    * @param {Object} updates - Ticket updates
    */
@@ -216,8 +402,13 @@ export function useTicketDetails(ticketIdentifier) {
     error,
     updating,
     updateStatus,
+    updatePriority,
+    updateType,
+    updateTags,
     assignAgent,
     addAttachment,
+    sendReply,
+    loadReplies,
     refresh,
     updateLocal,
   };

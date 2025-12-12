@@ -1,7 +1,6 @@
 // src/hooks/useChats.js
 import { useState, useEffect, useCallback, useRef } from "react";
 import { chatApi, ApiError } from "../services/api";
-import { notificationService } from "../services/notificationService";
 
 export function useChats(initialParams = {}) {
   console.log("useChats hook initialized with params:", initialParams);
@@ -144,9 +143,13 @@ export function useChats(initialParams = {}) {
 
     return () => {
       mountedRef.current = false;
-      stopPolling();
+      // Clean up polling directly to avoid dependency issues
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [stopPolling]);
+  }, []); // Empty dependency array - run once on mount/unmount only
 
   // Update query parameters
   const updateParams = useCallback((newParams) => {

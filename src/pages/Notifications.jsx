@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { NotificationItem } from "../components/notifications";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { chatApi } from "../services/api";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -12,62 +13,8 @@ const NotificationsPage = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  const fetchNotifications = useCallback(
-    async (pageNum = 1, filterType = "all") => {
-      setLoading(pageNum === 1);
-      setError(null);
-
-      try {
-        const token = localStorage.getItem("token");
-        const unreadOnly = filterType === "unread";
-        const response = await fetch(
-          `${BASE_URL}/api/notifications?page=${pageNum}&limit=20&unreadOnly=${unreadOnly}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch notifications: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.success) {
-          const formattedNotifications = data.data.notifications.map(
-            (notification) => ({
-              ...notification,
-              timeAgo: formatTimeAgo(notification.createdAt),
-              timestamp: new Date(notification.createdAt),
-            })
-          );
-
-          if (pageNum === 1) {
-            setNotifications(formattedNotifications);
-          } else {
-            setNotifications((prev) => [...prev, ...formattedNotifications]);
-          }
-
-          setHasMore(data.data.pagination.hasNext);
-          setPage(pageNum);
-        } else {
-          throw new Error(data.error || "Failed to fetch notifications");
-        }
-      } catch (error) {
-        console.error("Error fetching notifications:", error);
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
-
-  useEffect(() => {
-    fetchNotifications(1, filter);
-  }, [filter, fetchNotifications]);
-
-  const formatTimeAgo = (timestamp) => {
+  // Helper: format timestamps to a human string
+  function formatTimeAgo(timestamp) {
     const now = new Date();
     const time = new Date(timestamp);
     const diffInSeconds = Math.floor((now - time) / 1000);
@@ -86,26 +33,73 @@ const NotificationsPage = () => {
     } else {
       return time.toLocaleDateString();
     }
-  };
+  }
+
+  const fetchNotifications = useCallback(async (pageNum = 1) => {
+    setLoading(pageNum === 1);
+    setError(null);
+
+    try {
+      // Use chatApi which wraps auth, error handling and the correct endpoints
+      const result = await chatApi.getNotifications({
+        page: pageNum,
+        limit: 20,
+      });
+
+      // Support multiple response shapes from different backends
+      let notificationsData = [];
+      let pagination = { hasNext: false };
+
+      if (result == null) {
+        throw new Error("Empty response from notifications API");
+      }
+
+      if (Array.isArray(result)) {
+        notificationsData = result;
+      } else if (result.notifications) {
+        notificationsData = result.notifications;
+        pagination = result.pagination || pagination;
+      } else if (result.data && result.data.notifications) {
+        notificationsData = result.data.notifications;
+        pagination = result.data.pagination || pagination;
+      } else if (result.data && Array.isArray(result.data)) {
+        notificationsData = result.data;
+      }
+
+      const formattedNotifications = (notificationsData || []).map(
+        (notification) => ({
+          ...notification,
+          timeAgo: formatTimeAgo(notification.createdAt),
+          timestamp: new Date(notification.createdAt),
+        })
+      );
+
+      if (pageNum === 1) {
+        setNotifications(formattedNotifications);
+      } else {
+        setNotifications((prev) => [...prev, ...formattedNotifications]);
+      }
+
+      setHasMore(Boolean(pagination.hasNext));
+      setPage(pageNum);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      setError(error?.userMessage || error.message || String(error));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications(1, filter);
+  }, [filter, fetchNotifications]);
 
   const handleMarkAsRead = async (notificationId) => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        `${BASE_URL}/api/notifications/${notificationId}/read`,
-        {
-          method: "PUT",
-          headers: { Authorization: `Bearer ${token}` },
-        }
+      await chatApi.markNotificationAsRead(notificationId);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
       );
-
-      if (response.ok) {
-        setNotifications((prev) =>
-          prev.map((n) =>
-            n.id === notificationId ? { ...n, isRead: true } : n
-          )
-        );
-      }
     } catch (error) {
       console.error("Error marking as read:", error);
     }
@@ -113,18 +107,8 @@ const NotificationsPage = () => {
 
   const handleMarkAllAsRead = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        `${BASE_URL}/api/notifications/mark-all-read`,
-        {
-          method: "PUT",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.ok) {
-        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      }
+      await chatApi.markAllNotificationsAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch (error) {
       console.error("Error marking all as read:", error);
     }
@@ -132,15 +116,8 @@ const NotificationsPage = () => {
 
   const handleClearRead = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${BASE_URL}/api/notifications/clear-read`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        setNotifications((prev) => prev.filter((n) => !n.isRead));
-      }
+      await chatApi.clearAllReadNotifications();
+      setNotifications((prev) => prev.filter((n) => !n.isRead));
     } catch (error) {
       console.error("Error clearing read notifications:", error);
     }

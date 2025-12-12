@@ -23,17 +23,15 @@ export default function CustomerDetails() {
   const [editData, setEditData] = useState({
     name: "",
     phone: "",
-    tags: [],
   });
-  const [newTag, setNewTag] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
   useEffect(() => {
     if (customer) {
       setEditData({
         name: customer.name || "",
         phone: customer.phone || "",
-        tags: customer.tags || [],
       });
     }
   }, [customer]);
@@ -41,30 +39,21 @@ export default function CustomerDetails() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      await updateCustomer(editData);
+      setSaveError(null);
+      // Only send fields that backend supports
+      const updateData = {
+        name: editData.name,
+        phone: editData.phone,
+      };
+      await updateCustomer(updateData);
       setIsEditing(false);
     } catch (err) {
-      console.error("Failed to update customer:", err);
+      setSaveError(
+        err.message || "Failed to update customer. Please try again."
+      );
     } finally {
       setSaving(false);
     }
-  };
-
-  const addTag = () => {
-    if (newTag.trim() && !editData.tags.includes(newTag.trim())) {
-      setEditData((prev) => ({
-        ...prev,
-        tags: [...prev.tags, newTag.trim()],
-      }));
-      setNewTag("");
-    }
-  };
-
-  const removeTag = (tagToRemove) => {
-    setEditData((prev) => ({
-      ...prev,
-      tags: prev.tags.filter((tag) => tag !== tagToRemove),
-    }));
   };
 
   if (loading) {
@@ -158,7 +147,10 @@ export default function CustomerDetails() {
             ) : (
               <div className="flex space-x-2">
                 <button
-                  onClick={() => setIsEditing(false)}
+                  onClick={() => {
+                    setIsEditing(false);
+                    setSaveError(null);
+                  }}
                   className={BTN}
                   disabled={saving}
                 >
@@ -175,6 +167,13 @@ export default function CustomerDetails() {
             )}
           </div>
         </div>
+
+        {/* Error message */}
+        {saveError && (
+          <div className="mb-4 p-3 rounded-md bg-red-900/20 border border-red-800 text-red-200 text-sm">
+            ⚠️ {saveError}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Info */}
@@ -215,7 +214,9 @@ export default function CustomerDetails() {
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Email
                     </label>
-                    <p className="text-gray-200 py-2">{customer.email}</p>
+                    <p className="text-gray-200 py-2 break-words overflow-wrap-anywhere">
+                      {customer.email}
+                    </p>
                     <p className="text-xs text-gray-500">
                       Email cannot be edited
                     </p>
@@ -258,61 +259,6 @@ export default function CustomerDetails() {
                 </div>
               </div>
             </div>
-
-            {/* Tags */}
-            <div className={CARD}>
-              <div className="p-6">
-                <h2 className="text-lg font-medium mb-4">Tags</h2>
-                {isEditing ? (
-                  <div>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {editData.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-blue-900/20 text-blue-300 border border-blue-800"
-                        >
-                          {tag}
-                          <button
-                            onClick={() => removeTag(tag)}
-                            className="hover:text-red-300"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newTag}
-                        onChange={(e) => setNewTag(e.target.value)}
-                        onKeyPress={(e) => e.key === "Enter" && addTag()}
-                        className={`${INPUT} flex-1`}
-                        placeholder="Add a tag"
-                      />
-                      <button onClick={addTag} className={BTN}>
-                        Add
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {customer.tags && customer.tags.length > 0 ? (
-                      customer.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="inline-flex items-center px-2 py-1 text-xs rounded-md bg-white/5 text-gray-300 border border-[#293239]"
-                        >
-                          {tag}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-gray-500 italic">No tags</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Sidebar */}
@@ -333,10 +279,12 @@ export default function CustomerDetails() {
                     <span
                       className={`px-2 py-1 text-xs rounded-full ${
                         customer.status === "active"
-                          ? "bg-green-900/30 text-green-300"
-                          : customer.status === "suspended"
-                          ? "bg-red-900/30 text-red-300"
-                          : "bg-gray-900/30 text-gray-300"
+                          ? "bg-green-900/30 text-green-300 border border-green-800"
+                          : customer.status === "blocked"
+                          ? "bg-red-900/30 text-red-300 border border-red-800"
+                          : customer.status === "inactive"
+                          ? "bg-yellow-900/30 text-yellow-300 border border-yellow-800"
+                          : "bg-gray-900/30 text-gray-300 border border-gray-700"
                       }`}
                     >
                       {customer.status}
@@ -373,11 +321,11 @@ export default function CustomerDetails() {
                   >
                     View Tickets
                   </Link>
-                  <button className={`${BTN} w-full`}>Send Email</button>
                   <button
                     className={`${BTN} w-full text-red-300 border-red-800 hover:bg-red-900/20`}
+                    title="Block this customer from accessing services"
                   >
-                    Suspend Customer
+                    Block Customer
                   </button>
                 </div>
               </div>

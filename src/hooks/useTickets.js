@@ -35,10 +35,7 @@ export function useTickets(initialFilters = {}) {
     setError(null);
 
     try {
-      console.log("Fetching tickets with filters:", filters);
       const response = await ticketApi.getAllTickets(filters);
-
-      console.log("Tickets API response:", response);
 
       // Handle response format - data is directly an array
       if (response.success) {
@@ -46,9 +43,6 @@ export function useTickets(initialFilters = {}) {
         const ticketsArray = Array.isArray(response.data)
           ? response.data
           : response.data?.tickets || response.tickets || [];
-
-        console.log("Tickets array:", ticketsArray);
-        console.log("Tickets array length:", ticketsArray.length);
 
         setTickets(ticketsArray);
         setPagination(
@@ -63,7 +57,6 @@ export function useTickets(initialFilters = {}) {
         throw new Error(response.error || "Failed to fetch tickets");
       }
     } catch (err) {
-      console.error("Error fetching tickets:", err);
       setError(err.message || "Failed to load tickets");
       setTickets([]);
     } finally {

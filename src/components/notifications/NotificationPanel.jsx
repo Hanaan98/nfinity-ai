@@ -1,52 +1,15 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import NotificationItem from "./NotificationItem";
 import LoadingSpinner from "../LoadingSpinner";
-import { useAuth } from "../../auth/AuthProvider";
-import { notificationService } from "../../services/notificationService";
+import useNotifications from "../../hooks/useNotifications";
 
 const NotificationPanel = ({ onClose, isOpen }) => {
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const panelRef = useRef(null);
-  const { isAuthenticated } = useAuth();
+  const [hasFetched, setHasFetched] = useState(false);
 
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Check if user is authenticated
-      if (!isAuthenticated) {
-        throw new Error("User not authenticated");
-      }
-
-      // Use the notification service to fetch notifications
-      const { notifications: fetchedNotifications } =
-        await notificationService.fetchNotifications(1, 20);
-      setNotifications(fetchedNotifications);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-
-      // For development, show mock notifications if backend is not available
-      if (
-        error.message.includes("fetch") ||
-        error.message.includes("NetworkError") ||
-        error.message.includes("not available") ||
-        error.message.includes("Failed to fetch")
-      ) {
-        console.log(
-          "Backend not available, showing mock notifications for development"
-        );
-        setNotifications(getMockNotifications());
-        setError(null);
-      } else {
-        setError(error.message);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated]);
+  // Use the centralized notifications hook
+  const { notifications, loading, error, fetchNotifications, markAsRead } =
+    useNotifications();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -55,150 +18,46 @@ const NotificationPanel = ({ onClose, isOpen }) => {
       }
     };
 
-    // Listen for notification updates
-    const handleNotificationUpdate = (data) => {
-      if (data.type === "marked_read") {
-        setNotifications((prev) =>
-          prev.map((n) =>
-            n.id === data.notificationId ? { ...n, isRead: true } : n
-          )
-        );
-      } else if (data.type === "marked_all_read") {
-        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      } else if (data.type === "deleted") {
-        setNotifications((prev) =>
-          prev.filter((n) => n.id !== data.notificationId)
-        );
-      } else if (data.type === "cleared_read") {
-        setNotifications((prev) => prev.filter((n) => !n.isRead));
-      }
-    };
-
-    const handleNewNotification = (notification) => {
-      setNotifications((prev) => [notification, ...prev].slice(0, 20)); // Keep only latest 20
-    };
+    if (isOpen && !hasFetched) {
+      // Only fetch notifications once when panel first opens
+      setHasFetched(true);
+      fetchNotifications().catch(console.error);
+    }
 
     if (isOpen) {
-      fetchNotifications();
       document.addEventListener("mousedown", handleClickOutside);
-
-      // Subscribe to notification updates
-      notificationService.on("notificationUpdate", handleNotificationUpdate);
-      notificationService.on("notification", handleNewNotification);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-      notificationService.off("notificationUpdate", handleNotificationUpdate);
-      notificationService.off("notification", handleNewNotification);
     };
-  }, [isOpen, onClose, fetchNotifications]);
+  }, [isOpen, onClose, hasFetched]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mock notifications for development when backend is not available
-  const getMockNotifications = () => {
-    const now = new Date();
-    return [
-      {
-        id: 1,
-        type: "long_wait_time",
-        title: "⚠️ Customer Waiting Too Long",
-        message:
-          "customer@example.com has been waiting for 35 minutes without a response",
-        priority: "urgent",
-        isRead: false,
-        createdAt: new Date(now - 5 * 60 * 1000).toISOString(),
-        timeAgo: "5 minutes ago",
-        timestamp: new Date(now - 5 * 60 * 1000),
-        data: {
-          customerEmail: "customer@example.com",
-          waitTimeMinutes: 35,
-          sessionId: "session-123",
-        },
-        actionUrl: "/chats/session-123",
-        emoji: "⚠️",
-      },
-      {
-        id: 2,
-        type: "new_ticket",
-        title: "New Support Ticket",
-        message: "support@example.com needs assistance with their recent order",
-        priority: "high",
-        isRead: false,
-        createdAt: new Date(now - 15 * 60 * 1000).toISOString(),
-        timeAgo: "15 minutes ago",
-        timestamp: new Date(now - 15 * 60 * 1000),
-        data: {
-          customerEmail: "support@example.com",
-          contactType: "support",
-          sessionId: "session-456",
-        },
-        actionUrl: "/chats/session-456",
-        emoji: "🎫",
-      },
-      {
-        id: 3,
-        type: "new_message",
-        title: "Order Tracking Inquiry",
-        message: "order@example.com is asking about order #12345 status",
-        priority: "medium",
-        isRead: true,
-        createdAt: new Date(now - 45 * 60 * 1000).toISOString(),
-        timeAgo: "45 minutes ago",
-        timestamp: new Date(now - 45 * 60 * 1000),
-        data: {
-          customerEmail: "order@example.com",
-          conversationType: "order_tracking",
-          sessionId: "session-789",
-        },
-        actionUrl: "/chats/session-789",
-        emoji: "💬",
-      },
-      {
-        id: 4,
-        type: "status_changed",
-        title: "Conversation Resolved",
-        message: "Chat with general@example.com has been marked as resolved",
-        priority: "low",
-        isRead: true,
-        createdAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
-        timeAgo: "2 hours ago",
-        timestamp: new Date(now - 2 * 60 * 60 * 1000),
-        data: {
-          customerEmail: "general@example.com",
-          oldStatus: "active",
-          newStatus: "closed",
-          sessionId: "session-101",
-        },
-        actionUrl: "/chats/session-101",
-        emoji: "✅",
-      },
-    ];
-  };
-
-  const handleMarkAsRead = async (notificationId) => {
-    try {
-      // Use notification service for marking as read
-      await notificationService.markNotificationAsRead(notificationId);
-      // The state update will be handled by the event listener
-    } catch (error) {
-      console.error("Error marking as read:", error);
-      // Fallback: update local state directly
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
-      );
+  // Reset fetch flag when panel closes
+  useEffect(() => {
+    if (!isOpen) {
+      setHasFetched(false);
     }
-  };
+  }, [isOpen]);
 
-  const handleNotificationClick = (notification) => {
+  const handleNotificationClick = async (notification) => {
     // Mark as read if not already
     if (!notification.isRead) {
-      handleMarkAsRead(notification.id);
+      await markAsRead(notification.id);
     }
 
     // Navigate to action URL
     if (notification.actionUrl) {
       window.location.href = notification.actionUrl;
       onClose();
+    }
+  };
+
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      await markAsRead(notificationId);
+    } catch (error) {
+      console.error("Error marking as read:", error);
     }
   };
 
@@ -247,7 +106,10 @@ const NotificationPanel = ({ onClose, isOpen }) => {
                 Error loading notifications
               </div>
               <button
-                onClick={fetchNotifications}
+                onClick={() => {
+                  setHasFetched(false);
+                  fetchNotifications();
+                }}
                 className="mt-1 text-xs text-blue-400 hover:text-blue-300"
               >
                 Retry

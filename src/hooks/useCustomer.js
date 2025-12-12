@@ -25,7 +25,6 @@ export function useCustomer(customerId) {
         throw new Error(response.message || "Failed to fetch customer");
       }
     } catch (err) {
-      console.error("Error fetching customer:", err);
       setError(
         err instanceof ApiError ? err.message : "Failed to load customer"
       );
@@ -45,7 +44,6 @@ export function useCustomer(customerId) {
         await chatApi.updateCustomer(customerId, customerData);
         setCustomer((prev) => ({ ...prev, ...customerData }));
       } catch (err) {
-        console.error("Error updating customer:", err);
         throw err;
       }
     },

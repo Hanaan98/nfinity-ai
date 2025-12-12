@@ -2,33 +2,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { chatApi } from "../services/api";
-
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+import { chatToActivity, formatTimeAgo } from "../utils/messageHelpers";
 
 const cardBase =
   "bg-[#1d2328] border border-[#293239] rounded-lg transition-all duration-200 hover:border-[#3a434a]";
-
-// Format timestamp to "time ago" string
-const formatTimeAgo = (timestamp) => {
-  const now = new Date();
-  const time = new Date(timestamp);
-  const diffInSeconds = Math.floor((now - time) / 1000);
-
-  if (diffInSeconds < 60) {
-    return "Just now";
-  } else if (diffInSeconds < 3600) {
-    const minutes = Math.floor(diffInSeconds / 60);
-    return `${minutes}m ago`;
-  } else if (diffInSeconds < 86400) {
-    const hours = Math.floor(diffInSeconds / 3600);
-    return `${hours}h ago`;
-  } else if (diffInSeconds < 2592000) {
-    const days = Math.floor(diffInSeconds / 86400);
-    return `${days}d ago`;
-  } else {
-    return time.toLocaleDateString();
-  }
-};
 
 const StatCard = ({ label, value, sub, trend, isLoading = false }) => (
   <div className={`${cardBase} p-6 relative overflow-hidden group`}>
@@ -189,6 +166,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dateRange, setDateRange] = useState("7"); // days
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   // Calculate date range
   const getDateRange = (days) => {
@@ -207,142 +185,39 @@ export default function Dashboard() {
 
       const { startDate, endDate } = getDateRange(parseInt(dateRange));
 
-      // Fetch dashboard overview
-      const dashboardResponse = await fetch(
-        `${BASE_URL}/analytics/dashboard?startDate=${startDate}&endDate=${endDate}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      // Fetch dashboard overview using centralized API service
+      const dashboard = await chatApi.getAnalyticsDashboard({
+        startDate,
+        endDate,
+      });
 
-      if (!dashboardResponse.ok) {
-        throw new Error("Failed to fetch dashboard data");
-      }
-
-      const dashboard = await dashboardResponse.json();
       console.log("Dashboard API response:", dashboard);
 
       // Extract data from the API response structure
       const dashboardData = dashboard.success ? dashboard.data : dashboard;
 
       // Fetch customer statistics for the 4th KPI card
-      const customersResponse = await fetch(
-        `${BASE_URL}/analytics/customers?startDate=${startDate}&endDate=${endDate}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (customersResponse.ok) {
-        const customers = await customersResponse.json();
+      try {
+        const customers = await chatApi.getAnalyticsCustomers({
+          startDate,
+          endDate,
+        });
         const customerData = customers.success ? customers.data : customers;
         dashboardData.customers = customerData;
+      } catch (error) {
+        console.error("Failed to fetch customer stats:", error);
+        // Continue without customer stats
+        dashboardData.customers = {
+          totalCustomers: 0,
+          newCustomers: 0,
+          activeCustomers: 0,
+        };
       }
 
       setDashboardData(dashboardData);
 
-      // Fetch recent activity (5 most recent chats) - same API as Chats page
-      try {
-        console.log("Dashboard: Fetching recent chats...");
-        const response = await chatApi.getChats({
-          page: 1,
-          limit: 5,
-          filter: "all",
-        });
-
-        console.log("Dashboard: Chat API response:", response);
-
-        if (response.success && response.data && response.data.chats) {
-          const chatsArray = response.data.chats;
-          console.log("Dashboard: Found chats:", chatsArray.length);
-
-          // Convert chats to activity format - slice top 5
-          const activityData = chatsArray.slice(0, 5).map((chat) => {
-            // Handle latestMessage - it might be an object or string
-            let messageText = `${chat.conversationType || "Chat"} conversation`;
-            if (chat.latestMessage) {
-              if (typeof chat.latestMessage === "string") {
-                messageText = chat.latestMessage;
-              } else if (chat.latestMessage.content) {
-                messageText = chat.latestMessage.content;
-              } else if (chat.latestMessage.fullContent) {
-                messageText = chat.latestMessage.fullContent;
-              }
-            }
-
-            return {
-              id: chat.id || chat.sessionId,
-              type: chat.conversationType || "chat",
-              customerName: chat.customerEmail || "Anonymous Customer",
-              customer: chat.customerEmail || "Anonymous",
-              timestamp: chat.lastMessageAt || chat.createdAt,
-              timeAgo: formatTimeAgo(chat.lastMessageAt || chat.createdAt),
-              sessionId: chat.sessionId,
-              status: chat.status || "active",
-              conversationType: chat.conversationType,
-              messagePreview: messageText,
-              latestMessage: messageText,
-            };
-          });
-
-          console.log("Dashboard: Formatted activity data:", activityData);
-          setRecentActivity(activityData);
-        } else {
-          console.log("Dashboard: No chats in response, using fallback");
-          throw new Error("No chats data in response");
-        }
-      } catch (error) {
-        console.log(
-          "Failed to fetch recent chats, trying analytics endpoint:",
-          error
-        );
-
-        // Fallback to analytics endpoint
-        const activityResponse = await fetch(
-          `${BASE_URL}/analytics/recent-activity?limit=5`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (activityResponse.ok) {
-          const activity = await activityResponse.json();
-          console.log("Activity API response:", activity);
-
-          // Extract activities from the API response structure
-          const activityData = activity.success
-            ? activity.data.activities
-            : activity.activities || [];
-          setRecentActivity(activityData);
-        } else {
-          console.log("Analytics endpoint failed, using demo data");
-          // If analytics endpoint also fails, use demo data
-          setRecentActivity([
-            {
-              id: "demo-fallback-1",
-              type: "support",
-              customerName: "fallback.customer@example.com",
-              customer: "fallback.customer@example.com",
-              timestamp: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
-              timeAgo: "3m ago",
-              sessionId: "fallback-session-1",
-              status: "active",
-              conversationType: "support",
-              messagePreview: "Customer support request",
-              latestMessage: "Support conversation started",
-            },
-          ]);
-        }
-      }
+      // Fetch recent activity using dedicated function
+      await fetchRecentActivity();
     } catch (err) {
       console.error("Dashboard fetch error:", err);
       setError(err.message);
@@ -365,11 +240,11 @@ export default function Dashboard() {
           trend: { type: "up", value: "+23%" },
         },
         topIntents: [
-          { intent: "Where is my order?", percentage: 35 },
-          { intent: "Return / exchange", percentage: 22 },
-          { intent: "Product recommendations", percentage: 18 },
-          { intent: "Change address", percentage: 10 },
-          { intent: "Other", percentage: 15 },
+          { intent: "Where is my order?", percentage: 35, count: 35 },
+          { intent: "Return / exchange", percentage: 22, count: 22 },
+          { intent: "Product recommendations", percentage: 18, count: 18 },
+          { intent: "Change address", percentage: 10, count: 10 },
+          { intent: "Other", percentage: 15, count: 15 },
         ],
       });
       setRecentActivity([
@@ -381,27 +256,75 @@ export default function Dashboard() {
           timestamp: "10:16 pm",
           channel: "Email",
         },
-        {
-          id: "#109786",
-          customerName: "art92819",
-          message: "Physical delivery address requested…",
-          status: "pending",
-          timestamp: "9:50 pm",
-          channel: "Chat (AI)",
-        },
-        {
-          id: "#109819",
-          customerName: "Tyeshia Wilson",
-          message: "Exchange request for Amazon Order #112…",
-          status: "escalated",
-          timestamp: "8:05 pm",
-          channel: "Chat → Human",
-        },
       ]);
     } finally {
       setLoading(false);
     }
   }, [dateRange]);
+
+  // Separate function for fetching recent activity
+  const fetchRecentActivity = useCallback(async () => {
+    try {
+      console.log("Dashboard: Fetching recent chats...");
+      const response = await chatApi.getChats({
+        page: 1,
+        limit: 5,
+        filter: "all",
+      });
+
+      console.log("Dashboard: Chat API response:", response);
+
+      if (response.success && response.data && response.data.chats) {
+        const chatsArray = response.data.chats;
+        console.log("Dashboard: Found chats:", chatsArray.length);
+
+        // Convert chats to activity format using utility function
+        const activityData = chatsArray.slice(0, 5).map(chatToActivity);
+
+        console.log("Dashboard: Formatted activity data:", activityData);
+        setRecentActivity(activityData);
+        setLastUpdated(new Date());
+      } else {
+        console.log("Dashboard: No chats in response, using fallback");
+        throw new Error("No chats data in response");
+      }
+    } catch (error) {
+      console.log(
+        "Failed to fetch recent chats, trying analytics endpoint:",
+        error
+      );
+
+      try {
+        // Fallback to analytics endpoint using API service
+        const activity = await chatApi.getAnalyticsRecentActivity({ limit: 5 });
+        console.log("Activity API response:", activity);
+
+        // Extract activities from the API response structure
+        const activityData = activity.success
+          ? activity.data.activities
+          : activity.activities || [];
+        setRecentActivity(activityData);
+      } catch (analyticsError) {
+        console.log("Analytics endpoint failed, using demo data");
+        // If analytics endpoint also fails, use demo data
+        setRecentActivity([
+          {
+            id: "demo-fallback-1",
+            type: "support",
+            customerName: "fallback.customer@example.com",
+            customer: "fallback.customer@example.com",
+            timestamp: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
+            timeAgo: "3m ago",
+            sessionId: "fallback-session-1",
+            status: "active",
+            conversationType: "support",
+            messagePreview: "Customer support request",
+            latestMessage: "Support conversation started",
+          },
+        ]);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     fetchDashboardData();
@@ -409,67 +332,13 @@ export default function Dashboard() {
 
   // Separate effect for refreshing recent chats more frequently
   useEffect(() => {
-    // Initial fetch of recent chats
-    const fetchRecentChats = async () => {
-      try {
-        console.log("Dashboard: Auto-fetching recent chats...");
-        const response = await chatApi.getChats({
-          page: 1,
-          limit: 5,
-          filter: "all",
-        });
-
-        if (response.success && response.data && response.data.chats) {
-          const chatsArray = response.data.chats;
-          console.log(
-            "Dashboard: Auto-refresh found chats:",
-            chatsArray.length
-          );
-
-          const activityData = chatsArray.slice(0, 5).map((chat) => {
-            // Handle latestMessage - it might be an object or string
-            let messageText = `${chat.conversationType || "Chat"} conversation`;
-            if (chat.latestMessage) {
-              if (typeof chat.latestMessage === "string") {
-                messageText = chat.latestMessage;
-              } else if (chat.latestMessage.content) {
-                messageText = chat.latestMessage.content;
-              } else if (chat.latestMessage.fullContent) {
-                messageText = chat.latestMessage.fullContent;
-              }
-            }
-
-            return {
-              id: chat.id || chat.sessionId,
-              type: chat.conversationType || "chat",
-              customerName: chat.customerEmail || "Anonymous Customer",
-              customer: chat.customerEmail || "Anonymous",
-              timestamp: chat.lastMessageAt || chat.createdAt,
-              timeAgo: formatTimeAgo(chat.lastMessageAt || chat.createdAt),
-              sessionId: chat.sessionId,
-              status: chat.status || "active",
-              conversationType: chat.conversationType,
-              messagePreview: messageText,
-              latestMessage: messageText,
-            };
-          });
-
-          setRecentActivity(activityData);
-        }
-      } catch (error) {
-        console.log("Dashboard: Auto-refresh failed:", error);
-        // Don't override existing data on refresh failures
-      }
-    };
-
-    // Fetch immediately
-    fetchRecentChats();
-
     // Set up polling every 30 seconds for recent chats (less frequent than chats page)
-    const interval = setInterval(fetchRecentChats, 30000);
+    const interval = setInterval(() => {
+      fetchRecentActivity();
+    }, 30000);
 
     return () => clearInterval(interval);
-  }, []); // Run once on mount
+  }, [fetchRecentActivity]);
 
   const handleDateRangeChange = (e) => {
     setDateRange(e.target.value);
@@ -607,67 +476,21 @@ export default function Dashboard() {
                 <h3 className="text-lg font-semibold text-white">
                   Recent Activity
                 </h3>
-                <p className="text-sm text-gray-400">
-                  Latest customer interactions and support tickets
-                </p>
+                <div className="flex items-center gap-3 mt-1">
+                  <p className="text-sm text-gray-400">
+                    Latest customer interactions and support tickets
+                  </p>
+                  {lastUpdated && (
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                      <span>Updated {formatTimeAgo(lastUpdated)}</span>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={async () => {
-                    try {
-                      console.log("Manual refresh of recent chats...");
-                      const response = await chatApi.getChats({
-                        page: 1,
-                        limit: 5,
-                        filter: "all",
-                      });
-
-                      if (
-                        response.success &&
-                        response.data &&
-                        response.data.chats
-                      ) {
-                        const chatsArray = response.data.chats;
-                        const activityData = chatsArray
-                          .slice(0, 5)
-                          .map((chat) => {
-                            // Handle latestMessage - it might be an object or string
-                            let messageText = `${
-                              chat.conversationType || "Chat"
-                            } conversation`;
-                            if (chat.latestMessage) {
-                              if (typeof chat.latestMessage === "string") {
-                                messageText = chat.latestMessage;
-                              } else if (chat.latestMessage.content) {
-                                messageText = chat.latestMessage.content;
-                              } else if (chat.latestMessage.fullContent) {
-                                messageText = chat.latestMessage.fullContent;
-                              }
-                            }
-
-                            return {
-                              id: chat.id || chat.sessionId,
-                              type: chat.conversationType || "chat",
-                              customerName:
-                                chat.customerEmail || "Anonymous Customer",
-                              customer: chat.customerEmail || "Anonymous",
-                              timestamp: chat.lastMessageAt || chat.createdAt,
-                              timeAgo: formatTimeAgo(
-                                chat.lastMessageAt || chat.createdAt
-                              ),
-                              sessionId: chat.sessionId,
-                              status: chat.status || "active",
-                              conversationType: chat.conversationType,
-                              messagePreview: messageText,
-                              latestMessage: messageText,
-                            };
-                          });
-                        setRecentActivity(activityData);
-                      }
-                    } catch (error) {
-                      console.error("Manual refresh failed:", error);
-                    }
-                  }}
+                  onClick={fetchRecentActivity}
                   className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-white/5 rounded-md transition-colors duration-200"
                   title="Refresh recent activity"
                 >

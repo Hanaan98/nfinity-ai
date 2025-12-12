@@ -66,6 +66,7 @@ export default function Tickets() {
 
   // Local UI state
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [sortBy, setSortBy] = useState("created_at");
@@ -74,61 +75,25 @@ export default function Tickets() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1); // Reset to page 1 when search changes
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Fetch tickets with filters
-  const {
-    tickets,
-    loading,
-    error,
-    pagination,
-    setPage,
-    setSearch,
-    setStatus,
-    setPriority,
-    setSorting,
-    refresh,
-  } = useTickets({
+  const { tickets, loading, error, pagination, refresh } = useTickets({
     page: currentPage,
     limit: pageSize,
-    search: searchQuery,
+    search: debouncedSearch,
     status: statusFilter,
     priority: priorityFilter,
     sortBy,
     sortOrder,
   });
-
-  // Update page when pagination changes
-  useEffect(() => {
-    setPage(currentPage);
-  }, [currentPage, setPage]);
-
-  // Debug: Check if token is available
-  useEffect(() => {
-    const token = getAccessToken();
-    console.log("🔑 Auth token available:", !!token);
-    if (!token) {
-      console.error("❌ No auth token found! User might not be logged in.");
-    }
-  }, []);
-
-  // Apply search with debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchQuery);
-      setCurrentPage(1);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchQuery, setSearch]);
-
-  // Apply filters
-  useEffect(() => {
-    setStatus(statusFilter);
-    setCurrentPage(1);
-  }, [statusFilter, setStatus]);
-
-  useEffect(() => {
-    setPriority(priorityFilter);
-    setCurrentPage(1);
-  }, [priorityFilter, setPriority]);
 
   // Selection helpers
   const pageIds = tickets.map((t) => String(t.id));
@@ -150,12 +115,12 @@ export default function Tickets() {
   // Toggle sort
   const toggleSort = (key) => {
     if (sortBy === key) {
-      setSortOrder(sortOrder === "DESC" ? "ASC" : "DESC");
+      const newOrder = sortOrder === "DESC" ? "ASC" : "DESC";
+      setSortOrder(newOrder);
     } else {
       setSortBy(key);
       setSortOrder("DESC");
     }
-    setSorting(key, sortOrder === "DESC" ? "ASC" : "DESC");
   };
 
   // Navigate to ticket details
@@ -224,6 +189,20 @@ export default function Tickets() {
 
               <button
                 onClick={() => {
+                  setStatusFilter("in_progress");
+                  clearSelection();
+                }}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm ${
+                  statusFilter === "in_progress"
+                    ? "bg-blue-900/30 text-blue-100 border border-blue-800"
+                    : "text-gray-300 hover:bg-white/5 border border-transparent"
+                }`}
+              >
+                In Progress
+              </button>
+
+              <button
+                onClick={() => {
                   setStatusFilter("resolved");
                   clearSelection();
                 }}
@@ -234,6 +213,20 @@ export default function Tickets() {
                 }`}
               >
                 Resolved Tickets
+              </button>
+
+              <button
+                onClick={() => {
+                  setStatusFilter("closed");
+                  clearSelection();
+                }}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm ${
+                  statusFilter === "closed"
+                    ? "bg-blue-900/30 text-blue-100 border border-blue-800"
+                    : "text-gray-300 hover:bg-white/5 border border-transparent"
+                }`}
+              >
+                Closed Tickets
               </button>
             </nav>
           </div>
@@ -251,8 +244,12 @@ export default function Tickets() {
                   ? "Open Tickets"
                   : statusFilter === "pending"
                   ? "Pending Tickets"
+                  : statusFilter === "in_progress"
+                  ? "In Progress Tickets"
                   : statusFilter === "resolved"
                   ? "Resolved Tickets"
+                  : statusFilter === "closed"
+                  ? "Closed Tickets"
                   : "Tickets"}
               </h1>
               <p className="mt-1 text-sm text-gray-400">
@@ -282,7 +279,7 @@ export default function Tickets() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-3 h-10 rounded-md bg-[#1d2328] border border-[#293239] text-sm text-gray-200 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-blue-500/40"
-                placeholder="Search tickets, order ID, customer email..."
+                placeholder="Search tickets by order ID or email..."
               />
             </div>
 
@@ -348,9 +345,8 @@ export default function Tickets() {
                     <span>Ticket #</span>
                   </div>
                   <div className="col-span-3 md:col-span-2">Order ID</div>
-                  <div className="col-span-5 md:col-span-4">Subject</div>
+                  <div className="col-span-5 md:col-span-5">Subject</div>
                   <div className="hidden md:block md:col-span-2">Customer</div>
-                  <div className="hidden md:block md:col-span-1">Priority</div>
                   <div className="hidden md:block md:col-span-1 text-right">
                     Updated
                   </div>
@@ -398,7 +394,7 @@ export default function Tickets() {
                       </div>
 
                       {/* subject */}
-                      <div className="col-span-5 md:col-span-4 min-w-0">
+                      <div className="col-span-5 md:col-span-5 min-w-0">
                         <span className="truncate text-sm text-gray-200">
                           {ticket.subject}
                         </span>
@@ -409,11 +405,6 @@ export default function Tickets() {
                         <span className="truncate text-xs text-gray-400">
                           {ticket.customer_email}
                         </span>
-                      </div>
-
-                      {/* priority */}
-                      <div className="hidden md:block md:col-span-1">
-                        <PriorityBadge priority={ticket.priority} />
                       </div>
 
                       {/* updated */}

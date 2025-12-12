@@ -70,11 +70,16 @@ async function apiRequest(endpoint, options = {}) {
 
   const config = {
     headers: {
-      "Content-Type": "application/json",
       ...options.headers,
     },
     ...options,
   };
+
+  // Only add Content-Type for non-FormData requests
+  // FormData needs the browser to set Content-Type with boundary
+  if (!(options.body instanceof FormData)) {
+    config.headers["Content-Type"] = "application/json";
+  }
 
   // Add authorization header if token exists and not a public endpoint
   if (accessToken && !options.skipAuth) {
@@ -613,6 +618,94 @@ export const chatApi = {
     });
     clearTokens();
     return result;
+  },
+
+  // Analytics endpoints
+  async getAnalyticsDashboard({ startDate, endDate } = {}) {
+    const params = new URLSearchParams();
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+
+    const endpoint = `/analytics/dashboard${
+      params.toString() ? `?${params.toString()}` : ""
+    }`;
+    return await apiRequest(endpoint);
+  },
+
+  async getAnalyticsCustomers({ startDate, endDate } = {}) {
+    const params = new URLSearchParams();
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+
+    const endpoint = `/analytics/customers${
+      params.toString() ? `?${params.toString()}` : ""
+    }`;
+    return await apiRequest(endpoint);
+  },
+
+  async getAnalyticsRecentActivity({ limit = 5 } = {}) {
+    return await apiRequest(`/analytics/recent-activity?limit=${limit}`);
+  },
+
+  async getAnalyticsChatsPerDay({ startDate, endDate } = {}) {
+    const params = new URLSearchParams();
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+
+    const endpoint = `/analytics/chats-per-day${
+      params.toString() ? `?${params.toString()}` : ""
+    }`;
+    return await apiRequest(endpoint);
+  },
+
+  async getAnalyticsRevenueFromOrders({ startDate, endDate } = {}) {
+    const params = new URLSearchParams();
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+
+    const endpoint = `/analytics/revenue-from-orders${
+      params.toString() ? `?${params.toString()}` : ""
+    }`;
+    return await apiRequest(endpoint);
+  },
+
+  async getAnalyticsPerformance({ startDate, endDate } = {}) {
+    const params = new URLSearchParams();
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+
+    const endpoint = `/analytics/performance${
+      params.toString() ? `?${params.toString()}` : ""
+    }`;
+    return await apiRequest(endpoint);
+  },
+
+  // File Upload
+  async uploadImages(files) {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("images", file);
+    });
+
+    return await apiRequest("/upload/images", {
+      method: "POST",
+      body: formData,
+      // FormData will be detected and Content-Type will not be set
+    });
+  },
+
+  // Document Upload
+  async uploadFiles(files) {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    return await apiRequest("/upload/files", {
+      method: "POST",
+      body: formData,
+      // FormData will be detected and Content-Type will not be set
+    });
   },
 };
 

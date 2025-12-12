@@ -28,38 +28,38 @@ export default function Customers() {
     useCustomers();
 
   // UI state
-  const [section, setSection] = useState("all"); // "all" | "suspended"
   const [query, setQuery] = useState("");
-  const [sortAsc, setSortAsc] = useState(true);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("DESC"); // "ASC" | "DESC"
 
-  // Update API params when UI changes
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Update API params when filters or debounced query changes
   useEffect(() => {
     updateParams({
       page: 1,
-      search: query,
+      search: debouncedQuery,
       status: statusFilter === "all" ? "all" : statusFilter,
+      order: sortOrder,
     });
-  }, [query, statusFilter, updateParams]);
+  }, [debouncedQuery, statusFilter, sortOrder, updateParams]);
 
   // Handle pagination
   const handlePageChange = (newPage) => {
     updateParams({ page: newPage });
   };
 
-  const toggleSort = () => setSortAsc((s) => !s);
+  const toggleSort = () => setSortOrder((s) => (s === "ASC" ? "DESC" : "ASC"));
 
-  // Client-side sorting (since API might not support it)
-  const sortedCustomers = useMemo(() => {
-    const sorted = [...(customers || [])];
-    sorted.sort((a, b) => {
-      const nameA = (a.name || a.email || "").toLowerCase();
-      const nameB = (b.name || b.email || "").toLowerCase();
-      const result = nameA.localeCompare(nameB);
-      return sortAsc ? result : -result;
-    });
-    return sorted;
-  }, [customers, sortAsc]);
+  // Use customers directly from backend (already sorted)
+  const displayCustomers = customers || [];
 
   if (error) {
     return (
@@ -95,12 +95,9 @@ export default function Customers() {
 
             <nav className="px-4 pb-4 space-y-2">
               <button
-                onClick={() => {
-                  setSection("all");
-                  setStatusFilter("all");
-                }}
+                onClick={() => setStatusFilter("all")}
                 className={`w-full text-left px-3 py-2 rounded-md text-sm ${
-                  section === "all"
+                  statusFilter === "all"
                     ? "bg-blue-900/30 text-blue-100 border border-blue-800"
                     : "text-gray-300 hover:bg-white/5 border border-transparent"
                 }`}
@@ -109,12 +106,9 @@ export default function Customers() {
               </button>
 
               <button
-                onClick={() => {
-                  setSection("active");
-                  setStatusFilter("active");
-                }}
+                onClick={() => setStatusFilter("active")}
                 className={`w-full text-left px-3 py-2 rounded-md text-sm ${
-                  section === "active"
+                  statusFilter === "active"
                     ? "bg-blue-900/30 text-blue-100 border border-blue-800"
                     : "text-gray-300 hover:bg-white/5 border border-transparent"
                 }`}
@@ -123,17 +117,25 @@ export default function Customers() {
               </button>
 
               <button
-                onClick={() => {
-                  setSection("suspended");
-                  setStatusFilter("suspended");
-                }}
+                onClick={() => setStatusFilter("inactive")}
                 className={`w-full text-left px-3 py-2 rounded-md text-sm ${
-                  section === "suspended"
+                  statusFilter === "inactive"
                     ? "bg-blue-900/30 text-blue-100 border border-blue-800"
                     : "text-gray-300 hover:bg-white/5 border border-transparent"
                 }`}
               >
-                Suspended users
+                Inactive customers
+              </button>
+
+              <button
+                onClick={() => setStatusFilter("blocked")}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm ${
+                  statusFilter === "blocked"
+                    ? "bg-blue-900/30 text-blue-100 border border-blue-800"
+                    : "text-gray-300 hover:bg-white/5 border border-transparent"
+                }`}
+              >
+                Blocked users
               </button>
             </nav>
 
@@ -208,7 +210,7 @@ export default function Customers() {
               onClick={toggleSort}
               title="Toggle sort by name"
             >
-              Sort: Name {sortAsc ? "↑" : "↓"}
+              Sort: Name {sortOrder === "ASC" ? "↑" : "↓"}
             </button>
           </div>
 
@@ -254,7 +256,7 @@ export default function Customers() {
               <CustomerListSkeleton rows={8} />
             ) : (
               <ul className={ROW_DIV}>
-                {sortedCustomers.map((customer, index) => (
+                {displayCustomers.map((customer, index) => (
                   <div
                     key={customer.id}
                     className="animate-fade-in-up"
@@ -264,7 +266,7 @@ export default function Customers() {
                   </div>
                 ))}
 
-                {!loading && sortedCustomers.length === 0 && (
+                {!loading && displayCustomers.length === 0 && (
                   <li className="px-6 py-12">
                     <EmptyState
                       title="No customers found"
@@ -292,8 +294,9 @@ export default function Customers() {
             {/* footer / pagination */}
             <div className="px-4 py-3 flex items-center justify-between border-t border-[#293239]">
               <p className="text-xs text-gray-400">
-                Showing {sortedCustomers.length} of {pagination.totalCustomers}{" "}
-                customers
+                Showing {displayCustomers.length} customers on this page (Page{" "}
+                {pagination.currentPage} of {pagination.totalPages},{" "}
+                {pagination.totalCustomers} total)
               </p>
               <div className="flex items-center gap-2">
                 <button

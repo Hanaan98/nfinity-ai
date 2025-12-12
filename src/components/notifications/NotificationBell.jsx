@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import NotificationPanel from "./NotificationPanel";
-import { useNotifications } from "../../hooks/useNotifications";
+import useNotifications from "../../hooks/useNotifications";
 
 const NotificationBell = () => {
   const [showPanel, setShowPanel] = useState(false);

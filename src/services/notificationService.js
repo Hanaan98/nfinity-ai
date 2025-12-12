@@ -114,17 +114,10 @@ class NotificationService {
   startPolling() {
     this.stopPolling(); // Clear any existing intervals
 
-    // Poll chat list every 5 seconds for regular chat updates
-    this.chatPollInterval = setInterval(async () => {
-      try {
-        const chatsData = await chatApi.getChats({ page: 1, limit: 20 });
-        this.notifyListeners("chatsUpdated", chatsData);
-      } catch (error) {
-        console.error("Error polling chats:", error);
-      }
-    }, 5000);
+    // DISABLED: Commenting out aggressive polling that causes infinite loops
+    // Only poll unread count occasionally, not chats or notifications
 
-    // Poll unread count every 30 seconds as backup
+    // Poll unread count every 60 seconds as backup (reduced frequency)
     this.unreadCountInterval = setInterval(async () => {
       try {
         const { count } = await chatApi.getUnreadNotificationCount();
@@ -132,9 +125,9 @@ class NotificationService {
       } catch (error) {
         console.error("Error polling unread count:", error);
       }
-    }, 30000);
+    }, 60000); // Increased to 60 seconds
 
-    console.log("📡 Started polling for chat updates");
+    console.log("📡 Started minimal polling for unread count only");
   }
 
   // Stop all polling
@@ -173,17 +166,43 @@ class NotificationService {
   async fetchNotifications(page = 1, limit = 20) {
     try {
       const response = await chatApi.getNotifications({ page, limit });
-      const formattedNotifications = response.notifications.map(
-        (notification) => ({
-          ...notification,
-          timeAgo: this.formatTimeAgo(notification.createdAt),
-          timestamp: new Date(notification.createdAt),
-          emoji: this.getNotificationEmoji(
-            notification.type,
-            notification.priority
-          ),
-        })
-      );
+
+      // Handle different response structures from the backend
+      let notificationsArray = null;
+
+      if (Array.isArray(response)) {
+        notificationsArray = response;
+      } else if (
+        response?.notifications &&
+        Array.isArray(response.notifications)
+      ) {
+        notificationsArray = response.notifications;
+      } else if (
+        response?.data?.notifications &&
+        Array.isArray(response.data.notifications)
+      ) {
+        notificationsArray = response.data.notifications;
+      } else if (response?.data && Array.isArray(response.data)) {
+        notificationsArray = response.data;
+      } else {
+        console.error(
+          "❌ Could not find notifications array in response:",
+          response
+        );
+        throw new Error(
+          "Invalid response structure: no notifications array found"
+        );
+      }
+
+      const formattedNotifications = notificationsArray.map((notification) => ({
+        ...notification,
+        timeAgo: this.formatTimeAgo(notification.createdAt),
+        timestamp: new Date(notification.createdAt),
+        emoji: this.getNotificationEmoji(
+          notification.type,
+          notification.priority
+        ),
+      }));
 
       this.notifyListeners("notificationsFetched", {
         notifications: formattedNotifications,
