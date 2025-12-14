@@ -1,6 +1,7 @@
 // src/pages/Customers.jsx
 import React, { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { useCustomers } from "../hooks/useCustomers";
 import {
   CustomerListSkeleton,
@@ -81,117 +82,141 @@ export default function Customers() {
   }
 
   return (
-    <div className="w-full min-h-full bg-[#151a1e] text-gray-100">
+    <div className="w-full min-h-full bg-[#151a1e] text-gray-100 pl-6 pt-6">
       <div className="flex">
         {/* Left sticky rail */}
-        <aside
+        <motion.aside
           className={`hidden md:block sticky top-0 self-start h-[calc(100vh-0px)] w-64 pr-6 mr-6 ${borderClass}`}
           style={{ borderRightWidth: 1 }}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
         >
           <div className="rounded-lg overflow-hidden h-full">
-            <div className="px-4 py-3 text-sm font-semibold text-gray-300">
+            <div className="px-4 py-4 text-sm font-bold text-gray-200 border-b border-[#293239]">
               Customer lists
             </div>
 
-            <nav className="px-4 pb-4 space-y-2">
-              <button
+            <nav className="px-4 py-4 space-y-2">
+              <motion.button
+                whileHover={{ x: 4 }}
                 onClick={() => setStatusFilter("all")}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm ${
+                className={`w-full text-left px-4 py-3 rounded-lg text-sm font-semibold transition-all shadow-md ${
                   statusFilter === "all"
-                    ? "bg-blue-900/30 text-blue-100 border border-blue-800"
-                    : "text-gray-300 hover:bg-white/5 border border-transparent"
+                    ? "bg-gradient-to-br from-blue-900/40 to-blue-800/30 text-blue-200 border border-blue-700/50 shadow-blue-500/20"
+                    : "border-[#293239] bg-gradient-to-br from-[#1a2126] to-[#151b20] text-gray-300 hover:bg-white/5"
                 }`}
               >
                 All customers
-              </button>
+              </motion.button>
 
-              <button
+              <motion.button
+                whileHover={{ x: 4 }}
                 onClick={() => setStatusFilter("active")}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm ${
+                className={`w-full text-left px-4 py-3 rounded-lg text-sm font-semibold transition-all shadow-md ${
                   statusFilter === "active"
-                    ? "bg-blue-900/30 text-blue-100 border border-blue-800"
-                    : "text-gray-300 hover:bg-white/5 border border-transparent"
+                    ? "bg-gradient-to-br from-green-900/40 to-green-800/30 text-green-200 border border-green-700/50 shadow-green-500/20"
+                    : "border-[#293239] bg-gradient-to-br from-[#1a2126] to-[#151b20] text-gray-300 hover:bg-white/5"
                 }`}
               >
                 Active customers
-              </button>
+              </motion.button>
 
-              <button
+              <motion.button
+                whileHover={{ x: 4 }}
                 onClick={() => setStatusFilter("inactive")}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm ${
+                className={`w-full text-left px-4 py-3 rounded-lg text-sm font-semibold transition-all shadow-md ${
                   statusFilter === "inactive"
-                    ? "bg-blue-900/30 text-blue-100 border border-blue-800"
-                    : "text-gray-300 hover:bg-white/5 border border-transparent"
+                    ? "bg-gradient-to-br from-gray-900/40 to-gray-800/30 text-gray-200 border border-gray-700/50"
+                    : "border-[#293239] bg-gradient-to-br from-[#1a2126] to-[#151b20] text-gray-300 hover:bg-white/5"
                 }`}
               >
                 Inactive customers
-              </button>
+              </motion.button>
 
-              <button
+              <motion.button
+                whileHover={{ x: 4 }}
                 onClick={() => setStatusFilter("blocked")}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm ${
+                className={`w-full text-left px-4 py-3 rounded-lg text-sm font-semibold transition-all shadow-md ${
                   statusFilter === "blocked"
-                    ? "bg-blue-900/30 text-blue-100 border border-blue-800"
-                    : "text-gray-300 hover:bg-white/5 border border-transparent"
+                    ? "bg-gradient-to-br from-red-900/40 to-red-800/30 text-red-200 border border-red-700/50 shadow-red-500/20"
+                    : "border-[#293239] bg-gradient-to-br from-[#1a2126] to-[#151b20] text-gray-300 hover:bg-white/5"
                 }`}
               >
                 Blocked users
-              </button>
+              </motion.button>
             </nav>
 
-            <div className="mt-auto px-4 py-3 text-xs text-gray-500">
-              Connected to API endpoint
+            <div className="mt-auto px-4 py-3 text-xs text-gray-500 border-t border-[#293239]">
+              <div className="flex items-center gap-2">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-2 h-2 rounded-full bg-green-500 shadow-lg shadow-green-500/50"
+                />
+                Connected to API endpoint
+              </div>
             </div>
           </div>
-        </aside>
+        </motion.aside>
 
         {/* Main column */}
-        <section className="flex-1 min-w-0">
+        <section className="flex-1 min-w-0 p-6">
           {/* Header */}
-          <div className="flex items-start justify-between">
+          <motion.div 
+            className="flex items-start justify-between"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
             <div>
-              <h1 className="text-2xl font-semibold">Customers</h1>
-              <p className="mt-1 text-sm text-gray-400">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-100 to-gray-300 bg-clip-text text-transparent">Customers</h1>
+              <p className="mt-2 text-sm text-gray-400">
                 Search and manage your customers. Click on names to view
                 details.
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* Toolbar */}
           <div className="mt-6 flex flex-wrap items-center gap-3">
             {/* Search */}
             <div className="relative w-full max-w-lg">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
                 <svg
                   width="18"
                   height="18"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="1.7"
+                  strokeWidth="2"
                 >
                   <circle cx="11" cy="11" r="7" />
                   <path d="M21 21l-4.3-4.3" />
                 </svg>
               </span>
-              <input
+              <motion.input
+                whileFocus={{ scale: 1.01 }}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="w-full pl-10 pr-3 h-10 rounded-md bg-[#1d2328] border border-[#293239] text-sm text-gray-200 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-blue-500/40"
+                className="w-full pl-10 pr-4 h-11 rounded-lg bg-gradient-to-br from-[#1d2328] to-[#1a1f24] border border-[#293239] text-sm text-gray-200 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner"
                 placeholder="Search by name, email, or tag…"
               />
             </div>
 
             {/* Refresh button */}
-            <button
+            <motion.button
+              whileHover={{ scale: loading ? 1 : 1.05 }}
+              whileTap={{ scale: loading ? 1 : 0.95 }}
               onClick={refresh}
-              className="px-3 h-10 text-xs rounded-md border border-[#293239] bg-[#1a2126] text-gray-300 hover:bg-white/5 flex items-center gap-1.5"
+              className="px-4 h-11 text-xs rounded-lg border border-[#293239] bg-gradient-to-br from-[#1a2126] to-[#151b20] text-gray-300 hover:bg-white/5 flex items-center gap-2 font-medium shadow-lg transition-all"
               title="Refresh customers"
             >
-              <svg
-                width="14"
-                height="14"
+              <motion.svg
+                animate={{ rotate: loading ? 360 : 0 }}
+                transition={{ duration: 1, repeat: loading ? Infinity : 0, ease: "linear" }}
+                width="15"
+                height="15"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -201,23 +226,32 @@ export default function Customers() {
                 <path d="M21 3v5h-5" />
                 <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
                 <path d="M3 21v-5h5" />
-              </svg>
-            </button>
+              </motion.svg>
+              Refresh
+            </motion.button>
 
             {/* Sort */}
-            <button
-              className={BTN}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`${BTN} font-medium`}
               onClick={toggleSort}
               title="Toggle sort by name"
             >
               Sort: Name {sortOrder === "ASC" ? "↑" : "↓"}
-            </button>
+            </motion.button>
           </div>
 
           {/* Count */}
-          <div className="mt-4 text-sm text-gray-400">
-            {pagination.totalCustomers.toLocaleString()} customers
-          </div>
+          <motion.div 
+            className="mt-4 text-sm font-semibold"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <span className="text-blue-400">{pagination.totalCustomers.toLocaleString()}</span>
+            <span className="text-gray-400"> customers</span>
+          </motion.div>
 
           {/* Table */}
           <div className="mt-3 rounded-lg overflow-hidden">
@@ -256,15 +290,11 @@ export default function Customers() {
               <CustomerListSkeleton rows={8} />
             ) : (
               <ul className={ROW_DIV}>
-                {displayCustomers.map((customer, index) => (
-                  <div
-                    key={customer.id}
-                    className="animate-fade-in-up"
-                    style={{ animationDelay: `${index * 30}ms` }}
-                  >
-                    <CustomerRow customer={customer} />
-                  </div>
-                ))}
+                <AnimatePresence mode="popLayout">
+                  {displayCustomers.map((customer, index) => (
+                    <CustomerRow key={customer.id} customer={customer} />
+                  ))}
+                </AnimatePresence>
 
                 {!loading && displayCustomers.length === 0 && (
                   <li className="px-6 py-12">
@@ -292,40 +322,51 @@ export default function Customers() {
             )}
 
             {/* footer / pagination */}
-            <div className="px-4 py-3 flex items-center justify-between border-t border-[#293239]">
-              <p className="text-xs text-gray-400">
-                Showing {displayCustomers.length} customers on this page (Page{" "}
-                {pagination.currentPage} of {pagination.totalPages},{" "}
-                {pagination.totalCustomers} total)
+            <motion.div 
+              className="px-4 py-4 flex items-center justify-between border-t border-[#293239] bg-[#151a1e]/50"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <p className="text-xs text-gray-400 font-medium">
+                Showing <span className="text-blue-400 font-bold">{displayCustomers.length}</span> customers on this page (Page{" "}
+                <span className="text-blue-400">{pagination.currentPage}</span> of <span className="text-blue-400">{pagination.totalPages}</span>,{" "}
+                <span className="text-blue-400 font-bold">{pagination.totalCustomers}</span> total)
               </p>
               <div className="flex items-center gap-2">
-                <button
+                <motion.button
+                  whileHover={{ scale: pagination.currentPage > 1 ? 1.05 : 1 }}
+                  whileTap={{ scale: pagination.currentPage > 1 ? 0.95 : 1 }}
                   className={`${BTN} ${
                     pagination.currentPage === 1
                       ? "opacity-40 cursor-not-allowed"
-                      : ""
+                      : "hover:bg-white/10"
                   }`}
                   onClick={() => handlePageChange(pagination.currentPage - 1)}
                   disabled={pagination.currentPage === 1}
                 >
                   Prev
-                </button>
-                <span className="text-xs text-gray-400">
-                  Page {pagination.currentPage} / {pagination.totalPages}
+                </motion.button>
+                <span className="text-xs px-3 py-1.5 rounded-lg bg-[#1a2126] border border-[#293239] font-semibold">
+                  <span className="text-blue-400">{pagination.currentPage}</span>
+                  <span className="text-gray-500 mx-1">/</span>
+                  <span className="text-gray-300">{pagination.totalPages}</span>
                 </span>
-                <button
+                <motion.button
+                  whileHover={{ scale: pagination.currentPage < pagination.totalPages ? 1.05 : 1 }}
+                  whileTap={{ scale: pagination.currentPage < pagination.totalPages ? 0.95 : 1 }}
                   className={`${BTN} ${
                     pagination.currentPage === pagination.totalPages
                       ? "opacity-40 cursor-not-allowed"
-                      : ""
+                      : "hover:bg-white/10"
                   }`}
                   onClick={() => handlePageChange(pagination.currentPage + 1)}
                   disabled={pagination.currentPage === pagination.totalPages}
                 >
                   Next
-                </button>
+                </motion.button>
               </div>
-            </div>
+            </motion.div>
           </div>
         </section>
       </div>
@@ -350,18 +391,27 @@ function CustomerRow({ customer }) {
   };
 
   return (
-    <li className="px-4 py-3 hover:bg-white/2">
+    <motion.li 
+      className="px-4 py-4 hover:bg-gradient-to-r hover:from-blue-500/5 hover:to-transparent transition-all group"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ x: 4 }}
+      transition={{ duration: 0.2 }}
+    >
       <div className="grid grid-cols-12 items-center">
         {/* avatar + name */}
         <div className="col-span-3 md:col-span-3 flex items-center gap-3 min-w-0">
-          <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-[#0f1a20] border border-[#293239]">
-            <span className="text-xs font-medium text-gray-300">
+          <motion.span 
+            whileHover={{ scale: 1.1 }}
+            className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 shadow-lg"
+          >
+            <span className="text-sm font-semibold text-blue-300">
               {customer.initials || getInitials(customer.name, customer.email)}
             </span>
-          </span>
+          </motion.span>
           <Link
             to={`/customers/${customer.id}`}
-            className="truncate text-sm text-blue-400 hover:underline cursor-pointer"
+            className="truncate text-sm font-semibold text-blue-400 hover:text-blue-300 hover:underline cursor-pointer transition-colors"
           >
             {customer.name || "Unknown"}
           </Link>
@@ -371,7 +421,7 @@ function CustomerRow({ customer }) {
         <div className="col-span-4 md:col-span-4 flex items-center gap-2 min-w-0">
           <Link
             to={`/customers/${customer.id}`}
-            className="truncate text-sm text-gray-300 hover:text-blue-400"
+            className="truncate text-sm text-gray-300 hover:text-blue-400 transition-colors"
           >
             {customer.email}
           </Link>
@@ -379,31 +429,32 @@ function CustomerRow({ customer }) {
 
         {/* conversations */}
         <div className="col-span-2 md:col-span-2">
-          <span className="text-sm text-gray-300">
+          <span className="text-sm font-bold text-gray-200">
             {customer.totalConversations || 0}
           </span>
         </div>
 
         {/* status */}
         <div className="col-span-2 md:col-span-2">
-          <span
-            className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${
+          <motion.span
+            whileHover={{ scale: 1.05 }}
+            className={`inline-flex items-center px-2.5 py-1 text-xs rounded-full font-semibold ${
               customer.status === "active"
-                ? "bg-green-900/30 text-green-300 border border-green-800"
+                ? "bg-green-900/30 text-green-300 border border-green-800 shadow-green-500/20 shadow-sm"
                 : customer.status === "suspended"
-                ? "bg-red-900/30 text-red-300 border border-red-800"
+                ? "bg-red-900/30 text-red-300 border border-red-800 shadow-red-500/20 shadow-sm"
                 : "bg-gray-900/30 text-gray-300 border border-gray-700"
             }`}
           >
             {customer.status}
-          </span>
+          </motion.span>
         </div>
 
         {/* last activity */}
         <div className="col-span-1 md:col-span-1">
-          <span className="text-xs text-gray-400">{customer.lastActivity}</span>
+          <span className="text-xs text-gray-400 font-medium">{customer.lastActivity}</span>
         </div>
       </div>
-    </li>
+    </motion.li>
   );
 }

@@ -57,7 +57,13 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Dashboard /> },
-      { path: "chats", element: <ChatsWithPolling /> },
+      { 
+        path: "chats", 
+        children: [
+          { index: true, element: <ChatsWithPolling /> },
+          { path: ":sessionId", element: <ChatsWithPolling /> },
+        ]
+      },
       { path: "orders", element: <Orders /> },
       {
         path: "customers",

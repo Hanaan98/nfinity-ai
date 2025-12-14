@@ -18,9 +18,8 @@ export function useOrders(initialParams = {}) {
     page: 1,
     limit: 20,
     search: "",
-    sortBy: "CREATED_AT", // Shopify sortKey format
+    sortBy: "created_at", // Changed to match local DB column
     sortOrder: "desc", // "asc" | "desc"
-    tag: "ai-order", // Only fetch AI-generated orders
     ...initialParams,
   });
 
@@ -29,19 +28,13 @@ export function useOrders(initialParams = {}) {
       setLoading(true);
       setError(null);
 
-      let response;
-
-      // Map frontend sort params to Shopify format
-      const sortKey = params.sortBy || "CREATED_AT";
-      const reverse = params.sortOrder === "desc";
-
-      // Use tag-specific endpoint (required for AI orders)
-      response = await chatApi.getOrdersByTag(params.tag, {
+      // Use local orders endpoint instead of Shopify
+      const response = await chatApi.getLocalOrders({
         page: params.page,
         limit: params.limit,
         search: params.search,
-        sortKey: sortKey, // Shopify format
-        reverse: reverse, // Shopify uses reverse instead of sortOrder
+        sortKey: params.sortBy,
+        sortOrder: params.sortOrder,
       });
 
       if (response.success) {

@@ -1,8 +1,13 @@
 // src/pages/Dashboard.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { chatApi } from "../services/api";
 import { chatToActivity, formatTimeAgo } from "../utils/messageHelpers";
+import AnimatedStatCard from "../components/AnimatedStatCard";
+import AreaChart from "../components/charts/AreaChart";
+import BarChart from "../components/charts/BarChart";
+import InsightCard from "../components/InsightCard";
 
 const cardBase =
   "bg-[#1d2328] border border-[#293239] rounded-lg transition-all duration-200 hover:border-[#3a434a]";
@@ -105,14 +110,27 @@ const RecentActivityItem = ({ activity, isLoading = false, onClick }) => {
   };
 
   return (
-    <li
-      className="py-4 hover:bg-[#1d2328] -mx-4 px-4 rounded-lg transition-colors duration-200 cursor-pointer border border-transparent hover:border-[#293239]"
+    <motion.li
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      whileHover={{ x: 4, backgroundColor: "rgba(29, 35, 40, 0.5)" }}
+      transition={{ duration: 0.2 }}
+      className="py-4 -mx-4 px-4 rounded-lg cursor-pointer border border-transparent hover:border-[#293239]"
       onClick={onClick}
     >
       <div className="flex items-start gap-3">
-        <span
+        <motion.span
           className="mt-1.5 h-2.5 w-2.5 rounded-full"
           style={{ backgroundColor: getStatusColor(activity.status) }}
+          animate={{
+            scale: activity.status === 'active' ? [1, 1.3, 1] : 1,
+            opacity: activity.status === 'active' ? [1, 0.5, 1] : 1,
+          }}
+          transition={{
+            duration: 2,
+            repeat: activity.status === 'active' ? Infinity : 0,
+            ease: "easeInOut"
+          }}
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
@@ -151,7 +169,7 @@ const RecentActivityItem = ({ activity, isLoading = false, onClick }) => {
           </div>
         </div>
       </div>
-    </li>
+    </motion.li>
   );
 };
 
@@ -163,6 +181,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
   const [recentActivity, setRecentActivity] = useState([]);
+  const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dateRange, setDateRange] = useState("7"); // days
@@ -216,6 +235,9 @@ export default function Dashboard() {
 
       setDashboardData(dashboardData);
 
+      // Fetch chart data
+      await fetchChartData(startDate, endDate);
+
       // Fetch recent activity using dedicated function
       await fetchRecentActivity();
     } catch (err) {
@@ -229,10 +251,10 @@ export default function Dashboard() {
           subtitle: "82% resolved by AI",
           trend: { type: "up", value: "+12%" },
         },
-        humanEscalations: {
-          value: 47,
-          subtitle: "3.5% of total chats",
-          trend: { type: "down", value: "-8%" },
+        totalMessages: {
+          value: 1324,
+          subtitle: "User queries received",
+          trend: { type: "up", value: "+1324" },
         },
         ordersViaAI: {
           value: "$5,890",
@@ -261,6 +283,60 @@ export default function Dashboard() {
       setLoading(false);
     }
   }, [dateRange]);
+
+  // Fetch chart data from analytics endpoints
+  const fetchChartData = useCallback(async (startDate, endDate) => {
+    try {
+      // Fetch both chats per day and revenue data in parallel
+      const [chatsResponse, revenueResponse] = await Promise.all([
+        chatApi.getAnalyticsChatsPerDay({ startDate, endDate }),
+        chatApi.getAnalyticsRevenueFromOrders({ startDate, endDate })
+      ]);
+
+      const chatsData = chatsResponse.success ? chatsResponse.data : chatsResponse;
+      const revenueData = revenueResponse.success ? revenueResponse.data : revenueResponse;
+
+      // Combine the data for charts
+      const combinedData = [];
+      const chatsMap = new Map();
+      const revenueMap = new Map();
+
+      // Map chats per day
+      if (chatsData.chatsPerDay) {
+        chatsData.chatsPerDay.forEach(item => {
+          chatsMap.set(item.date, item.count);
+        });
+      }
+
+      // Map revenue per day
+      if (revenueData.revenuePerDay) {
+        revenueData.revenuePerDay.forEach(item => {
+          revenueMap.set(item.date, item.revenue);
+        });
+      }
+
+      // Create combined dataset
+      const allDates = new Set([...chatsMap.keys(), ...revenueMap.keys()]);
+      allDates.forEach(date => {
+        const dateObj = new Date(date);
+        combinedData.push({
+          name: dateObj.toLocaleDateString('en-US', { weekday: 'short' }),
+          fullDate: date,
+          chats: chatsMap.get(date) || 0,
+          revenue: revenueMap.get(date) || 0
+        });
+      });
+
+      // Sort by date
+      combinedData.sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
+
+      setChartData(combinedData);
+    } catch (error) {
+      console.error('Failed to fetch chart data:', error);
+      // Set empty chart data on error
+      setChartData([]);
+    }
+  }, []);
 
   // Separate function for fetching recent activity
   const fetchRecentActivity = useCallback(async () => {
@@ -347,9 +423,9 @@ export default function Dashboard() {
   // Handle clicking on a chat item to navigate to chat details
   const handleChatClick = (activity) => {
     if (activity.sessionId || activity.id) {
-      // Navigate to the specific chat
+      // Navigate to the specific chat using route param
       const chatId = activity.sessionId || activity.id.replace("#", "");
-      navigate(`/chats?sessionId=${chatId}`);
+      navigate(`/chats/${chatId}`);
     } else {
       // Fallback to general chats page
       navigate("/chats");
@@ -367,16 +443,21 @@ export default function Dashboard() {
             dashboardData.aiChats?.total > 0
               ? { type: "up", value: "+" + dashboardData.aiChats.total }
               : null,
+          color: "#3b82f6",
+          sparklineData: chartData.length > 0 
+            ? chartData.slice(-7).map(d => ({ value: d.chats }))
+            : null
         },
         {
-          label: "Human Escalations",
-          value: dashboardData.humanEscalations?.total?.toString() || "0",
-          sub:
-            dashboardData.humanEscalations?.percentage || "0% of total chats",
+          label: "Total Queries",
+          value: dashboardData.totalMessages?.total?.toString() || dashboardData.aiChats?.total?.toString() || "0",
+          sub: dashboardData.totalMessages?.subtitle || "User queries received",
           trend:
-            dashboardData.humanEscalations?.total === 0
-              ? { type: "down", value: "0%" }
+            dashboardData.totalMessages?.total > 0 || dashboardData.aiChats?.total > 0
+              ? { type: "up", value: "+" + (dashboardData.totalMessages?.total || dashboardData.aiChats?.total || 0) }
               : null,
+          color: "#f59e0b",
+          sparklineData: null
         },
         {
           label: "Orders via AI",
@@ -389,6 +470,10 @@ export default function Dashboard() {
                   value: dashboardData.ordersViaAI.orderCount + " orders",
                 }
               : null,
+          color: "#10b981",
+          sparklineData: chartData.length > 0
+            ? chartData.slice(-7).map(d => ({ value: d.revenue }))
+            : null
         },
         {
           label: "Total Customers",
@@ -401,9 +486,68 @@ export default function Dashboard() {
                   value: "+" + dashboardData.customers.newCustomers,
                 }
               : null,
+          color: "#8b5cf6",
+          sparklineData: null // No historical customer count yet
         },
       ]
     : [];
+
+  // Generate AI insights based on dashboard data
+  const generateInsights = () => {
+    if (!dashboardData) return [];
+
+    const insights = [];
+    const resolutionRate = parseInt(dashboardData.aiChats?.resolutionRate) || 0;
+    const totalQueries = dashboardData.totalMessages?.total || dashboardData.aiChats?.total || 0;
+    const orderCount = dashboardData.ordersViaAI?.orderCount || 0;
+
+    if (resolutionRate > 80) {
+      insights.push({
+        type: 'success',
+        title: 'Excellent AI Performance',
+        description: `Your AI is resolving ${resolutionRate}% of chats automatically. That's outstanding!`,
+        action: null
+      });
+    }
+
+    if (totalQueries > 50) {
+      insights.push({
+        type: 'info',
+        title: 'High Query Volume',
+        description: `${totalQueries} user queries received. Your AI is actively helping customers!`,
+        action: null
+      });
+    }
+
+    if (orderCount > 0) {
+      insights.push({
+        type: 'info',
+        title: 'AI-Driven Revenue',
+        description: `Your chatbot generated ${orderCount} orders this period. Revenue engine is working!`,
+        action: {
+          label: 'View orders',
+          onClick: () => navigate('/orders')
+        }
+      });
+    }
+
+    const activeChats = recentActivity.filter(a => a.status === 'active').length;
+    if (activeChats > 3) {
+      insights.push({
+        type: 'urgent',
+        title: 'Active Chats Need Attention',
+        description: `${activeChats} customers are waiting for responses. Quick action recommended.`,
+        action: {
+          label: 'Respond now',
+          onClick: () => navigate('/chats?filter=active')
+        }
+      });
+    }
+
+    return insights.slice(0, 3); // Max 3 insights
+  };
+
+  const insights = generateInsights();
 
   return (
     <div className="min-h-full w-full p-6 bg-[#151a1e]">
@@ -461,10 +605,26 @@ export default function Dashboard() {
         {loading
           ? // Loading skeleton
             Array.from({ length: 4 }).map((_, i) => (
-              <StatCard key={i} isLoading={true} />
+              <AnimatedStatCard key={i} isLoading={true} />
             ))
-          : kpis.map((k, index) => <StatCard key={index} {...k} />)}
+          : kpis.map((k, index) => (
+              <AnimatedStatCard key={index} {...k} />
+            ))}
       </div>
+
+      {/* AI Insights Section */}
+      {insights.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-white">AI Insights & Recommendations</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {insights.map((insight, index) => (
+              <InsightCard key={index} {...insight} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main content area */}
       <Row>
@@ -539,7 +699,6 @@ export default function Dashboard() {
                 ))
               ) : (
                 <div className="text-center py-12">
-                  <div className="text-gray-400 text-4xl mb-4">💬</div>
                   <p className="text-gray-400">No recent activity found</p>
                   <p className="text-sm text-gray-500 mt-1">
                     Customer interactions will appear here
@@ -552,34 +711,43 @@ export default function Dashboard() {
           {/* Charts row */}
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className={`${cardBase} p-6`}>
-              <h3 className="text-lg font-semibold text-white mb-2">
-                AI Chats per Day
-              </h3>
-              <p className="text-sm text-gray-400 mb-4">
-                Daily conversation volume trends
-              </p>
-              {/* Placeholder for chart */}
-              <div className="h-48 rounded-lg bg-[#151a1e] border border-dashed border-[#293239] flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-gray-400 text-3xl mb-2">📊</div>
-                  <p className="text-gray-400 text-sm">Chart coming soon</p>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">
+                    AI Chats per Day
+                  </h3>
+                  <p className="text-sm text-gray-400">
+                    Daily conversation volume trends
+                  </p>
                 </div>
               </div>
+              {loading ? (
+                <div className="h-48 rounded-lg bg-[#151a1e] border border-dashed border-[#293239] flex items-center justify-center animate-pulse">
+                  <div className="text-gray-500 text-sm">Loading chart...</div>
+                </div>
+              ) : (
+                <AreaChart data={chartData} dataKey="chats" color="#3b82f6" height={200} />
+              )}
             </div>
+            
             <div className={`${cardBase} p-6`}>
-              <h3 className="text-lg font-semibold text-white mb-2">
-                Revenue from AI Orders
-              </h3>
-              <p className="text-sm text-gray-400 mb-4">
-                Revenue generated through chatbot
-              </p>
-              {/* Placeholder for chart */}
-              <div className="h-48 rounded-lg bg-[#151a1e] border border-dashed border-[#293239] flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-gray-400 text-3xl mb-2">💰</div>
-                  <p className="text-gray-400 text-sm">Chart coming soon</p>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">
+                    Revenue from AI Orders
+                  </h3>
+                  <p className="text-sm text-gray-400">
+                    Revenue generated through chatbot
+                  </p>
                 </div>
               </div>
+              {loading ? (
+                <div className="h-48 rounded-lg bg-[#151a1e] border border-dashed border-[#293239] flex items-center justify-center animate-pulse">
+                  <div className="text-gray-500 text-sm">Loading chart...</div>
+                </div>
+              ) : (
+                <BarChart data={chartData} dataKey="revenue" height={200} />
+              )}
             </div>
           </div>
         </div>

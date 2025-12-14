@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   AlertCircle,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 
 // Demo data for development - remove in production
@@ -422,6 +423,8 @@ export default function TicketDetails() {
     assignAgent,
     sendReply,
     loadReplies,
+    refresh: refetchTicket,
+    toggleStarred: toggleStarredApi,
   } = useTicketDetails(ticketId);
 
   // UI State
@@ -438,6 +441,9 @@ export default function TicketDetails() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showRequesterMenu, setShowRequesterMenu] = useState(false);
   const [showAssigneeMenu, setShowAssigneeMenu] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [expandedReplies, setExpandedReplies] = useState({});
 
   // Local state for optimistic updates
   const [localStatus, setLocalStatus] = useState("");
@@ -508,6 +514,7 @@ export default function TicketDetails() {
       setLocalPriority(currentTicket.priority || "medium");
       setLocalType(currentTicket.issue_type || "general_inquiry");
       setLocalTags(parsedTags);
+      setIsStarred(currentTicket.is_starred || false);
 
       // Load replies from server if ticket has replies, otherwise use empty array
       if (currentTicket.replies && Array.isArray(currentTicket.replies)) {
@@ -561,6 +568,31 @@ export default function TicketDetails() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Fetch users when assignee menu opens
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (showAssigneeMenu && users.length === 0) {
+        setLoadingUsers(true);
+        try {
+          const response = await chatApi.getAllUsers();
+          console.log('Users API response:', response);
+          if (response.success && response.data) {
+            // Handle both array and object with users array
+            const usersList = Array.isArray(response.data) 
+              ? response.data 
+              : (response.data.users || []);
+            setUsers(usersList);
+          }
+        } catch (error) {
+          console.error("Error fetching users:", error);
+        } finally {
+          setLoadingUsers(false);
+        }
+      }
+    };
+    fetchUsers();
+  }, [showAssigneeMenu]);
+
   const handleSendReply = async () => {
     // Validate reply text (strip HTML tags and check if there's actual content)
     const textContent = replyText?.replace(/<[^>]*>/g, "").trim();
@@ -582,6 +614,14 @@ export default function TicketDetails() {
     // Filter attachments to only include those with URLs (fully uploaded)
     const uploadedAttachments = attachments.filter(att => att.url);
 
+    // Parse CC and BCC recipients (comma or semicolon separated)
+    const ccList = ccRecipients
+      ? ccRecipients.split(/[,;]/).map(email => email.trim()).filter(email => email)
+      : [];
+    const bccList = bccRecipients
+      ? bccRecipients.split(/[,;]/).map(email => email.trim()).filter(email => email)
+      : [];
+
     // Prepare reply data for API
     const replyData = {
       message: replyText,
@@ -589,6 +629,8 @@ export default function TicketDetails() {
       author_name: currentUser.name,
       is_staff_reply: true,
       is_public: replyType === "public",
+      cc: ccList,
+      bcc: bccList,
       attachments: uploadedAttachments.map((att) => ({
         name: att.name,
         url: att.url,
@@ -602,15 +644,13 @@ export default function TicketDetails() {
       id: `temp-${Date.now()}`,
       type: replyType === "public" ? "agent" : "internal",
       author: currentUser.name,
+      author_name: currentUser.name,
+      author_email: currentUser.email,
       email: currentUser.email,
-      timestamp: new Date().toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      }),
+      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      timestamp: new Date().toISOString(),
+      message: replyText,
       content: replyText,
       attachments: [...uploadedAttachments],
       via: "Web",
@@ -660,22 +700,31 @@ export default function TicketDetails() {
     
     if (files.length === 0) return;
     
-    console.log(`📎 Starting upload of ${files.length} file(s):`, files.map(f => f.name));
+    // Validate file sizes (max 10MB per file)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    const oversizedFiles = files.filter(f => f.size > MAX_FILE_SIZE);
+    if (oversizedFiles.length > 0) {
+      alert(`The following files exceed the 10MB limit:\n${oversizedFiles.map(f => f.name).join('\n')}`);
+      event.target.value = ''; // Clear input
+      return;
+    }
+    
+    console.log(`Starting upload of ${files.length} file(s):`, files.map(f => f.name));
     
     try {
       // Show loading state
       const tempAttachments = files.map((file) => ({
         name: file.name,
-        size: `${(file.size / 1024).toFixed(1)} KB`,
+        size: file.size > 1024 * 1024 ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : `${(file.size / 1024).toFixed(1)} KB`,
         type: file.type,
         uploading: true,
       }));
       setAttachments([...attachments, ...tempAttachments]);
 
       // Upload files to Cloudinary via backend
-      console.log('🔄 Calling API to upload files...');
+      console.log('Calling API to upload files...');
       const response = await chatApi.uploadFiles(files);
-      console.log('✅ API Response:', response);
+      console.log('API Response:', response);
       
       if (response.success && response.data) {
         // Replace temp attachments with uploaded ones
@@ -709,22 +758,31 @@ export default function TicketDetails() {
     
     if (files.length === 0) return;
     
-    console.log(`🖼️ Starting upload of ${files.length} image(s):`, files.map(f => f.name));
+    // Validate file sizes (max 10MB per image)
+    const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+    const oversizedFiles = files.filter(f => f.size > MAX_IMAGE_SIZE);
+    if (oversizedFiles.length > 0) {
+      alert(`The following images exceed the 10MB limit:\n${oversizedFiles.map(f => f.name).join('\n')}`);
+      event.target.value = ''; // Clear input
+      return;
+    }
+    
+    console.log(`Starting upload of ${files.length} image(s):`, files.map(f => f.name));
     
     try {
       // Show loading state
       const tempAttachments = files.map((file) => ({
         name: file.name,
-        size: `${(file.size / 1024).toFixed(1)} KB`,
+        size: file.size > 1024 * 1024 ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : `${(file.size / 1024).toFixed(1)} KB`,
         type: file.type,
         uploading: true,
       }));
       setAttachments([...attachments, ...tempAttachments]);
 
       // Upload images to Cloudinary via backend
-      console.log('🔄 Calling API to upload images...');
+      console.log('Calling API to upload images...');
       const response = await chatApi.uploadImages(files);
-      console.log('✅ API Response:', response);
+      console.log('API Response:', response);
       
       if (response.success && response.data) {
         // Replace temp attachments with uploaded ones
@@ -928,10 +986,31 @@ export default function TicketDetails() {
   };
 
   // Handle star/favorite toggle
-  const handleStarToggle = () => {
-    setIsStarred(!isStarred);
-    // TODO: Implement API call to save starred status
-    console.log(`Ticket ${isStarred ? "unstarred" : "starred"}`);
+  const handleStarToggle = async () => {
+    if (!currentTicket) return;
+
+    const newStarredState = !isStarred;
+    const previousState = isStarred;
+    
+    // Optimistic update
+    setIsStarred(newStarredState);
+
+    try {
+      const success = await toggleStarredApi(newStarredState);
+      
+      if (success) {
+        console.log(`✅ Ticket ${newStarredState ? "starred" : "unstarred"} successfully`);
+      } else {
+        // Revert on failure
+        setIsStarred(previousState);
+        console.error("❌ Failed to toggle starred status");
+      }
+    } catch (error) {
+      // Revert on error
+      setIsStarred(previousState);
+      console.error("❌ Error toggling starred status:", error);
+      alert("Failed to update starred status. Please try again.");
+    }
   };
 
   // Handle archive
@@ -1019,8 +1098,8 @@ export default function TicketDetails() {
 
       {/* Main Ticket View */}
       {currentTicket && (
-        <div className="w-full h-[calc(100vh-58px)] bg-[#151a1e] text-gray-100">
-          <div className="flex h-[calc(100vh-58px)] overflow-hidden">
+        <div className="w-full h-[calc(100vh-58px)] bg-[#151a1e] text-gray-100 overflow-hidden">
+          <div className="flex h-full overflow-hidden">
             {/* Main Content - Left Side */}
             <div className="flex-1 flex flex-col min-w-0 bg-[#1d2328] border-r border-[#293239]">
               {/* Top Header Bar - Zendesk Style */}
@@ -1055,6 +1134,18 @@ export default function TicketDetails() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 relative more-menu-container">
+                  <button
+                    onClick={() => {
+                      refetchTicket();
+                    }}
+                    className="p-1.5 hover:bg-white/5 rounded transition-colors"
+                    title="Refresh ticket"
+                  >
+                    <RefreshCw
+                      size={16}
+                      className="text-gray-400"
+                    />
+                  </button>
                   <button
                     onClick={handleStarToggle}
                     className="p-1.5 hover:bg-white/5 rounded transition-colors"
@@ -1414,14 +1505,30 @@ export default function TicketDetails() {
                             {/* Email To */}
                             <div className="mb-2 text-xs text-gray-500">
                               <span className="font-medium">To:</span>{" "}
-                              {reply.type === "customer"
-                                ? "Nfinity Support"
-                                : currentTicket?.customer_name || "Customer"}
-                              {reply.isPublic && (
+                              {reply.type === "customer" || !reply.is_staff_reply
+                                ? (reply.email || "support@nfinity.com")
+                                : (currentTicket?.customer_email || currentTicket?.customer_name || "Customer")}
+                              {(reply.isPublic || reply.is_public) && (
                                 <>
-                                  <button className="ml-3 text-blue-400 hover:underline">
-                                    Show more
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedReplies(prev => ({
+                                        ...prev,
+                                        [reply.id || index]: !prev[reply.id || index]
+                                      }));
+                                    }}
+                                    className="ml-3 text-blue-400 hover:underline"
+                                  >
+                                    {expandedReplies[reply.id || index] ? 'Show less' : 'Show more'}
                                   </button>
+                                  {expandedReplies[reply.id || index] && (
+                                    <div className="mt-2 pt-2 border-t border-[#293239] space-y-1">
+                                      <div><span className="font-medium">From:</span> {reply.author_email || reply.email || 'N/A'}</div>
+                                      <div><span className="font-medium">Date:</span> {reply.created_at ? new Date(reply.created_at).toLocaleString() : 'N/A'}</div>
+                                      {reply.is_staff_reply && <div><span className="font-medium">Type:</span> Staff Reply</div>}
+                                    </div>
+                                  )}
                                 </>
                               )}
                             </div>
@@ -1819,7 +1926,7 @@ export default function TicketDetails() {
                         type="text"
                         value={ccRecipients}
                         onChange={(e) => setCcRecipients(e.target.value)}
-                        placeholder="Add Cc recipients..."
+                        placeholder="Add Cc recipients (comma or semicolon separated)..."
                         className="flex-1 px-3 py-1.5 text-xs bg-[#1d2328] border border-[#293239] rounded text-gray-200 placeholder:text-gray-500 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500 outline-none"
                       />
                     </div>
@@ -1829,7 +1936,7 @@ export default function TicketDetails() {
                         type="text"
                         value={bccRecipients}
                         onChange={(e) => setBccRecipients(e.target.value)}
-                        placeholder="Add Bcc recipients..."
+                        placeholder="Add Bcc recipients (comma or semicolon separated)..."
                         className="flex-1 px-3 py-1.5 text-xs bg-[#1d2328] border border-[#293239] rounded text-gray-200 placeholder:text-gray-500 focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500 outline-none"
                       />
                     </div>
@@ -1996,57 +2103,55 @@ export default function TicketDetails() {
                     {attachments.some(att => att.uploading) && (
                       <Loader2 size={14} className="animate-spin" />
                     )}
-                    Submit as {localStatus}
+                    Send email
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Right Sidebar */}
-            <aside className="w-64 bg-[#1a1f24] border-l border-[#293239] overflow-y-auto flex-shrink-0">
+            <aside className="w-64 bg-[#1a1f24] border-l border-[#293239] overflow-y-auto overflow-x-hidden flex-shrink-0">
               {/* Status */}
               <div className="p-4 border-b border-[#293239]">
-                <h4 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">
-                  Status
+                <h4 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider flex items-center justify-between">
+                  <span>Status</span>
+                  {updating && <Loader2 size={12} className="animate-spin text-blue-400" />}
                 </h4>
-                <select
-                  value={localStatus}
-                  onChange={(e) => handleStatusChange(e.target.value)}
-                  disabled={updating}
-                  className="w-full px-2 py-1.5 bg-[#151a1e] border border-[#293239] rounded text-xs text-gray-300 hover:bg-[#1d2328] transition-all duration-200 cursor-pointer focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/60 outline-none disabled:opacity-50 disabled:cursor-not-allowed [&>option]:bg-[#1d2328] [&>option]:text-gray-300 [&>option]:py-1"
-                  style={{ colorScheme: "dark" }}
-                >
-                  <option value="open" className="bg-[#1d2328] text-gray-300">
-                    Open
-                  </option>
-                  <option
-                    value="pending"
-                    className="bg-[#1d2328] text-gray-300"
+                <div className="relative">
+                  <select
+                    value={localStatus}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    disabled={updating}
+                    className="w-full px-3 py-2 bg-[#151a1e] border border-[#293239] rounded-lg text-sm text-gray-200 hover:bg-[#1d2328] hover:border-blue-500/30 transition-all duration-200 cursor-pointer focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/60 outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
+                    style={{ colorScheme: "dark" }}
                   >
-                    Pending
-                  </option>
-                  <option
-                    value="in_progress"
-                    className="bg-[#1d2328] text-gray-300"
-                  >
-                    In Progress
-                  </option>
-                  <option
-                    value="resolved"
-                    className="bg-[#1d2328] text-gray-300"
-                  >
-                    Resolved
-                  </option>
-                  <option value="closed" className="bg-[#1d2328] text-gray-300">
-                    Closed
-                  </option>
-                </select>
-                {updating && (
-                  <div className="mt-2 flex items-center gap-2 text-xs text-blue-400">
-                    <Loader2 size={12} className="animate-spin" />
-                    Updating status...
-                  </div>
-                )}
+                    <option value="open" className="bg-[#1d2328] text-gray-300">
+                      Open
+                    </option>
+                    <option
+                      value="pending"
+                      className="bg-[#1d2328] text-gray-300"
+                    >
+                      Pending
+                    </option>
+                    <option
+                      value="in_progress"
+                      className="bg-[#1d2328] text-gray-300"
+                    >
+                      In Progress
+                    </option>
+                    <option
+                      value="resolved"
+                      className="bg-[#1d2328] text-gray-300"
+                    >
+                      Resolved
+                    </option>
+                    <option value="closed" className="bg-[#1d2328] text-gray-300">
+                      Closed
+                    </option>
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                </div>
               </div>
               {/* Requester */}
               <div className="p-4 border-b border-[#293239] relative requester-menu-container">
@@ -2132,29 +2237,65 @@ export default function TicketDetails() {
                 </button>
 
                 {showAssigneeMenu && (
-                  <div className="absolute left-4 right-4 top-full mt-1 bg-[#1d2328] border border-[#293239] rounded-lg shadow-xl z-50 p-2">
-                    <div className="text-xs space-y-1">
-                      <button
-                        onClick={async () => {
-                          if (user?.email) {
-                            await assignAgent(user.email);
+                  <div className="absolute left-4 right-4 top-full mt-1 bg-[#1d2328] border border-[#293239] rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
+                    {loadingUsers ? (
+                      <div className="p-4 text-center text-xs text-gray-400">
+                        Loading users...
+                      </div>
+                    ) : (
+                      <div className="p-2 space-y-1">
+                        <button
+                          onClick={async () => {
+                            if (user?.email) {
+                              await assignAgent(user.email);
+                              setShowAssigneeMenu(false);
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-white/5 rounded transition-colors text-gray-200 text-xs flex items-center gap-2"
+                        >
+                          <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-medium">
+                            {user?.email?.substring(0, 2).toUpperCase() || "ME"}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">Assign to me</div>
+                            <div className="text-[10px] text-gray-500 truncate">{user?.email}</div>
+                          </div>
+                        </button>
+                        
+                        <div className="border-t border-[#293239] my-1"></div>
+                        
+                        {users.filter(u => u.email !== user?.email).map((u) => (
+                          <button
+                            key={u.id}
+                            onClick={async () => {
+                              await assignAgent(u.email);
+                              setShowAssigneeMenu(false);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-white/5 rounded transition-colors text-gray-200 text-xs flex items-center gap-2"
+                          >
+                            <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center text-white text-[10px] font-medium">
+                              {u.email?.substring(0, 2).toUpperCase() || "??"}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">{u.firstName} {u.lastName}</div>
+                              <div className="text-[10px] text-gray-500 truncate">{u.email}</div>
+                            </div>
+                          </button>
+                        ))}
+                        
+                        <div className="border-t border-[#293239] my-1"></div>
+                        
+                        <button
+                          onClick={async () => {
+                            await assignAgent(null);
                             setShowAssigneeMenu(false);
-                          }
-                        }}
-                        className="w-full px-3 py-2 text-left hover:bg-white/5 rounded transition-colors text-gray-200"
-                      >
-                        Assign to me
-                      </button>
-                      <button
-                        onClick={async () => {
-                          await assignAgent(null);
-                          setShowAssigneeMenu(false);
-                        }}
-                        className="w-full px-3 py-2 text-left hover:bg-white/5 rounded transition-colors text-gray-400"
-                      >
-                        Unassign
-                      </button>
-                    </div>
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-white/5 rounded transition-colors text-gray-400 text-xs"
+                        >
+                          Unassign
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2169,9 +2310,9 @@ export default function TicketDetails() {
                     localTags.map((tag) => (
                       <span
                         key={tag}
-                        className="inline-flex items-center gap-1 bg-[#2563eb]/20 px-2 py-0.5 rounded text-xs text-blue-300 border border-blue-500/30 transition-all duration-200 hover:bg-[#2563eb]/30"
+                        className="inline-flex items-center gap-1 bg-[#2563eb]/20 px-2 py-0.5 rounded text-xs text-blue-300 border border-blue-500/30 transition-all duration-200 hover:bg-[#2563eb]/30 max-w-full"
                       >
-                        {tag}
+                        <span className="truncate">{tag}</span>
                         <button
                           onClick={() => removeTag(tag)}
                           disabled={updating}
@@ -2220,95 +2361,103 @@ export default function TicketDetails() {
 
               {/* Type */}
               <div className="p-4 border-b border-[#293239]">
-                <h4 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">
-                  Type
+                <h4 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider flex items-center justify-between">
+                  <span>Type</span>
+                  {updating && <Loader2 size={12} className="animate-spin text-blue-400" />}
                 </h4>
-                <select
-                  value={localType}
-                  onChange={(e) => handleTypeChange(e.target.value)}
-                  disabled={updating}
-                  className="w-full px-2 py-1.5 bg-[#151a1e] border border-[#293239] rounded text-xs text-gray-300 hover:bg-[#1d2328] transition-all duration-200 cursor-pointer focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/60 outline-none disabled:opacity-50 disabled:cursor-not-allowed [&>option]:bg-[#1d2328] [&>option]:text-gray-300 [&>option]:py-1"
-                  style={{ colorScheme: "dark" }}
-                >
-                  <option
-                    value="general_inquiry"
-                    className="bg-[#1d2328] text-gray-300"
+                <div className="relative">
+                  <select
+                    value={localType}
+                    onChange={(e) => handleTypeChange(e.target.value)}
+                    disabled={updating}
+                    className="w-full px-3 py-2 bg-[#151a1e] border border-[#293239] rounded-lg text-sm text-gray-200 hover:bg-[#1d2328] hover:border-blue-500/30 transition-all duration-200 cursor-pointer focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/60 outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
+                    style={{ colorScheme: "dark" }}
                   >
-                    General Inquiry
-                  </option>
-                  <option
-                    value="order_issue"
-                    className="bg-[#1d2328] text-gray-300"
-                  >
-                    Order Issue
-                  </option>
-                  <option
-                    value="wrong_item"
-                    className="bg-[#1d2328] text-gray-300"
-                  >
-                    Wrong Item
-                  </option>
-                  <option
-                    value="wrong_address"
-                    className="bg-[#1d2328] text-gray-300"
-                  >
-                    Wrong Address
-                  </option>
-                  <option
-                    value="defect_quality"
-                    className="bg-[#1d2328] text-gray-300"
-                  >
-                    Defect/Quality Issue
-                  </option>
-                  <option
-                    value="shipping_delay"
-                    className="bg-[#1d2328] text-gray-300"
-                  >
-                    Shipping Delay
-                  </option>
-                  <option
-                    value="missing_item"
-                    className="bg-[#1d2328] text-gray-300"
-                  >
-                    Missing Item
-                  </option>
-                  <option
-                    value="agent_request"
-                    className="bg-[#1d2328] text-gray-300"
-                  >
-                    Agent Request
-                  </option>
-                  <option value="other" className="bg-[#1d2328] text-gray-300">
-                    Other
-                  </option>
-                </select>
+                    <option
+                      value="general_inquiry"
+                      className="bg-[#1d2328] text-gray-300"
+                    >
+                      General Inquiry
+                    </option>
+                    <option
+                      value="order_issue"
+                      className="bg-[#1d2328] text-gray-300"
+                    >
+                      Order Issue
+                    </option>
+                    <option
+                      value="wrong_item"
+                      className="bg-[#1d2328] text-gray-300"
+                    >
+                      Wrong Item
+                    </option>
+                    <option
+                      value="wrong_address"
+                      className="bg-[#1d2328] text-gray-300"
+                    >
+                      Wrong Address
+                    </option>
+                    <option
+                      value="defect_quality"
+                      className="bg-[#1d2328] text-gray-300"
+                    >
+                      Defect/Quality Issue
+                    </option>
+                    <option
+                      value="shipping_delay"
+                      className="bg-[#1d2328] text-gray-300"
+                    >
+                      Shipping Delay
+                    </option>
+                    <option
+                      value="missing_item"
+                      className="bg-[#1d2328] text-gray-300"
+                    >
+                      Missing Item
+                    </option>
+                    <option
+                      value="agent_request"
+                      className="bg-[#1d2328] text-gray-300"
+                    >
+                      Agent Request
+                    </option>
+                    <option value="other" className="bg-[#1d2328] text-gray-300">
+                      Other
+                    </option>
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                </div>
               </div>
 
               {/* Priority */}
               <div className="p-4 border-b border-[#293239]">
-                <h4 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">
-                  Priority
+                <h4 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider flex items-center justify-between">
+                  <span>Priority</span>
+                  {updating && <Loader2 size={12} className="animate-spin text-blue-400" />}
                 </h4>
-                <select
-                  value={localPriority}
-                  onChange={(e) => handlePriorityChange(e.target.value)}
-                  disabled={updating}
-                  className="w-full px-2 py-1.5 bg-[#151a1e] border border-[#293239] rounded text-xs text-gray-300 hover:bg-[#1d2328] transition-all duration-200 cursor-pointer focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/60 outline-none disabled:opacity-50 disabled:cursor-not-allowed [&>option]:bg-[#1d2328] [&>option]:text-gray-300 [&>option]:py-1"
-                  style={{ colorScheme: "dark" }}
-                >
-                  <option value="low" className="bg-[#1d2328] text-gray-300">
-                    Low
-                  </option>
-                  <option value="medium" className="bg-[#1d2328] text-gray-300">
-                    Medium
-                  </option>
-                  <option value="high" className="bg-[#1d2328] text-gray-300">
-                    High
-                  </option>
-                  <option value="urgent" className="bg-[#1d2328] text-gray-300">
-                    Urgent
-                  </option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={localPriority}
+                    onChange={(e) => handlePriorityChange(e.target.value)}
+                    disabled={updating}
+                    className="w-full px-3 py-2 bg-[#151a1e] border border-[#293239] rounded-lg text-sm text-gray-200 hover:bg-[#1d2328] hover:border-blue-500/30 transition-all duration-200 cursor-pointer focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/60 outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
+                    style={{ colorScheme: "dark" }}
+                  >
+                    <option value="low" className="bg-[#1d2328] text-gray-300">
+                      Low
+                    </option>
+                    <option value="medium" className="bg-[#1d2328] text-gray-300">
+                      Medium
+                    </option>
+                    <option value="high" className="bg-[#1d2328] text-gray-300">
+                      High
+                    </option>
+                    <option value="urgent" className="bg-[#1d2328] text-gray-300">
+                      Urgent
+                    </option>
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                </div>
               </div>
             </aside>
           </div>

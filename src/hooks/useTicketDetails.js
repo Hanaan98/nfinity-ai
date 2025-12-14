@@ -396,6 +396,42 @@ export function useTicketDetails(ticketIdentifier) {
     setTicket((prev) => (prev ? { ...prev, ...updates } : prev));
   }, []);
 
+  /**
+   * Toggle starred status
+   * @param {boolean} isStarred - Whether ticket should be starred
+   * @returns {Promise<boolean>} Success status
+   */
+  const toggleStarred = useCallback(
+    async (isStarred) => {
+      if (!ticket) return false;
+
+      setUpdating(true);
+      setError(null);
+
+      try {
+        console.log("Toggling starred status:", isStarred);
+        const response = await ticketApi.toggleStarred(
+          ticket.ticket_number || ticket.id,
+          isStarred
+        );
+
+        if (response.success) {
+          setTicket(response.data || response.ticket);
+          return true;
+        } else {
+          throw new Error(response.error || "Failed to toggle starred status");
+        }
+      } catch (err) {
+        console.error("Error toggling starred status:", err);
+        setError(err.message || "Failed to toggle starred status");
+        return false;
+      } finally {
+        setUpdating(false);
+      }
+    },
+    [ticket]
+  );
+
   return {
     ticket,
     loading,
@@ -411,5 +447,6 @@ export function useTicketDetails(ticketIdentifier) {
     loadReplies,
     refresh,
     updateLocal,
+    toggleStarred,
   };
 }

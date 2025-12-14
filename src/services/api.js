@@ -355,6 +355,35 @@ export const chatApi = {
     return await apiRequest(endpoint);
   },
 
+  // Get local orders from database
+  async getLocalOrders({
+    page = 1,
+    limit = 20,
+    search = "",
+    sortKey = "created_at",
+    sortOrder = "desc",
+  } = {}) {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+
+    if (search.trim()) {
+      params.append("search", search.trim());
+    }
+
+    if (sortKey) {
+      params.append("sortKey", sortKey);
+    }
+
+    if (sortOrder) {
+      params.append("sortOrder", sortOrder);
+    }
+
+    const endpoint = `/local-orders?${params.toString()}`;
+    return await apiRequest(endpoint);
+  },
+
   // Get order details
   async getOrder(orderId) {
     return await apiRequest(`/orders/${orderId}`);
@@ -706,6 +735,11 @@ export const chatApi = {
       body: formData,
       // FormData will be detected and Content-Type will not be set
     });
+  },
+
+  // Users
+  async getAllUsers() {
+    return await apiRequest("/auth/users");
   },
 };
 

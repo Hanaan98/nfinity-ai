@@ -265,8 +265,22 @@ export const ticketApi = {
     );
   },
 
-  /**
-   * Update ticket tags (admin)
+  /**   * Toggle ticket starred status (admin)
+   * @param {string} identifier - Ticket ID or ticket number
+   * @param {boolean} is_starred - Whether ticket is starred
+   * @returns {Promise<Object>} Updated ticket
+   */
+  async toggleStarred(identifier, is_starred) {
+    return await ticketApiRequest(
+      `/tickets/${encodeURIComponent(identifier)}/starred`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ is_starred }),
+      }
+    );
+  },
+
+  /**   * Update ticket tags (admin)
    * @param {string} identifier - Ticket ID or ticket number
    * @param {Array<string>} tags - Array of tags
    * @returns {Promise<Object>} Updated ticket
@@ -319,6 +333,8 @@ export const ticketApi = {
       author_name,
       is_staff_reply = true,
       is_public = true,
+      cc = [],
+      bcc = [],
       attachments = [],
     } = replyData;
 
@@ -332,6 +348,8 @@ export const ticketApi = {
           author_name,
           is_staff_reply,
           is_public,
+          cc,
+          bcc,
           attachments,
         }),
       }

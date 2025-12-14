@@ -1,6 +1,7 @@
 // src/pages/CustomerDetails.jsx
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useCustomer } from "../hooks/useCustomer";
 
 const COLORS = {
@@ -107,16 +108,28 @@ export default function CustomerDetails() {
 
   return (
     <div className="w-full min-h-full bg-[#151a1e] text-gray-100 p-6">
-      <div className="max-w-4xl mx-auto">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-6xl mx-auto"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="flex items-center justify-between mb-8"
+        >
           <div className="flex items-center space-x-4">
-            <button
+            <motion.button
               onClick={() => navigate("/customers")}
-              className="p-2 rounded-md hover:bg-white/5 text-gray-400"
+              className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-gray-200 transition-colors"
+              whileHover={{ scale: 1.1, x: -4 }}
+              whileTap={{ scale: 0.95 }}
             >
               <svg
-                className="w-5 h-5"
+                className="w-6 h-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -128,67 +141,108 @@ export default function CustomerDetails() {
                   d="M15 19l-7-7 7-7"
                 />
               </svg>
-            </button>
+            </motion.button>
             <div>
-              <h1 className="text-2xl font-semibold">Customer Details</h1>
-              <p className="text-sm text-gray-400">
-                View and edit customer information
+              <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-500">
+                Customer Details
+              </h1>
+              <p className="text-sm text-gray-400 mt-1">
+                View and manage customer information
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
             {!isEditing ? (
-              <button
+              <motion.button
                 onClick={() => setIsEditing(true)}
-                className={`${BTN} bg-blue-900/20 border-blue-800 text-blue-200 hover:bg-blue-900/30`}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30 transition-all shadow-lg shadow-blue-500/10 font-semibold"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
                 Edit Customer
-              </button>
+              </motion.button>
             ) : (
               <div className="flex space-x-2">
-                <button
+                <motion.button
                   onClick={() => {
                     setIsEditing(false);
                     setSaveError(null);
                   }}
-                  className={BTN}
+                  className="px-4 py-2 rounded-lg bg-gray-500/20 border border-gray-500/30 text-gray-300 hover:bg-gray-500/30 transition-all font-semibold"
                   disabled={saving}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   Cancel
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   onClick={handleSave}
                   disabled={saving}
-                  className={`${BTN} bg-green-900/20 border-green-800 text-green-200 hover:bg-green-900/30 disabled:opacity-50`}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 text-green-300 hover:from-green-500/30 hover:to-emerald-500/30 transition-all shadow-lg shadow-green-500/10 font-semibold disabled:opacity-50"
+                  whileHover={{ scale: saving ? 1 : 1.05 }}
+                  whileTap={{ scale: saving ? 1 : 0.95 }}
                 >
-                  {saving ? "Saving..." : "Save Changes"}
-                </button>
+                  {saving ? (
+                    <span className="flex items-center gap-2">
+                      <motion.svg 
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-4 h-4" 
+                        fill="none" 
+                        viewBox="0 0 24 24"
+                      >
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                      </motion.svg>
+                      Saving...
+                    </span>
+                  ) : "Save Changes"}
+                </motion.button>
               </div>
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* Error message */}
         {saveError && (
-          <div className="mb-4 p-3 rounded-md bg-red-900/20 border border-red-800 text-red-200 text-sm">
-            ⚠️ {saveError}
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-lg bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30 text-red-200 text-sm shadow-lg shadow-red-500/10"
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              {saveError}
+            </div>
+          </motion.div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Info */}
           <div className="lg:col-span-2 space-y-6">
             {/* Basic Information */}
-            <div className={CARD}>
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-gradient-to-br from-blue-500/5 to-purple-500/5 border border-blue-500/20 rounded-lg shadow-xl shadow-blue-500/5"
+            >
               <div className="p-6">
-                <h2 className="text-lg font-medium mb-4">Basic Information</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-6">
+                  Basic Information
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-blue-300 mb-2">
                       Name
                     </label>
                     {isEditing ? (
-                      <input
+                      <motion.input
+                        initial={{ scale: 0.98 }}
+                        animate={{ scale: 1 }}
+                        whileFocus={{ scale: 1.01 }}
                         type="text"
                         value={editData.name}
                         onChange={(e) =>
@@ -197,11 +251,11 @@ export default function CustomerDetails() {
                             name: e.target.value,
                           }))
                         }
-                        className={INPUT}
+                        className="w-full px-4 py-3 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 text-gray-200 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-lg shadow-blue-500/5 font-medium"
                         placeholder="Enter customer name"
                       />
                     ) : (
-                      <p className="text-gray-200 py-2">
+                      <p className="text-gray-200 py-3 font-medium">
                         {customer.name || (
                           <span className="text-gray-500 italic">
                             No name provided
@@ -211,22 +265,25 @@ export default function CustomerDetails() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-blue-300 mb-2">
                       Email
                     </label>
-                    <p className="text-gray-200 py-2 break-words overflow-wrap-anywhere">
+                    <p className="text-gray-200 py-3 break-words font-medium">
                       {customer.email}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 mt-1">
                       Email cannot be edited
                     </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-blue-300 mb-2">
                       Phone
                     </label>
                     {isEditing ? (
-                      <input
+                      <motion.input
+                        initial={{ scale: 0.98 }}
+                        animate={{ scale: 1 }}
+                        whileFocus={{ scale: 1.01 }}
                         type="tel"
                         value={editData.phone}
                         onChange={(e) =>
@@ -235,11 +292,11 @@ export default function CustomerDetails() {
                             phone: e.target.value,
                           }))
                         }
-                        className={INPUT}
+                        className="w-full px-4 py-3 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 text-gray-200 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-lg shadow-blue-500/5 font-medium"
                         placeholder="Enter phone number"
                       />
                     ) : (
-                      <p className="text-gray-200 py-2">
+                      <p className="text-gray-200 py-3 font-medium">
                         {customer.phone || (
                           <span className="text-gray-500 italic">
                             No phone provided
@@ -249,90 +306,120 @@ export default function CustomerDetails() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-blue-300 mb-2">
                       Customer ID
                     </label>
-                    <p className="text-gray-400 py-2 font-mono text-sm">
-                      {customer.id}
+                    <p className="text-gray-400 py-3 font-mono text-sm bg-gray-500/10 px-3 rounded-lg border border-gray-500/20">
+                      #{customer.id}
                     </p>
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Quick Stats */}
-            <div className={CARD}>
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-gradient-to-br from-blue-500/5 to-blue-600/5 border border-blue-500/20 rounded-lg shadow-xl shadow-blue-500/5"
+            >
               <div className="p-6">
-                <h2 className="text-lg font-medium mb-4">Quick Stats</h2>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Total Conversations</span>
-                    <span className="font-medium">
+                <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-6">
+                  Quick Stats
+                </h2>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 font-medium">Total Conversations</span>
+                    <motion.span 
+                      className="font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400"
+                      whileHover={{ scale: 1.1 }}
+                    >
                       {customer.totalConversations || 0}
-                    </span>
+                    </motion.span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Status</span>
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 font-medium">Status</span>
+                    <motion.span
+                      whileHover={{ scale: 1.05 }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg shadow-lg ${
                         customer.status === "active"
-                          ? "bg-green-900/30 text-green-300 border border-green-800"
+                          ? "bg-gradient-to-r from-green-500/30 to-emerald-500/30 text-green-300 border border-green-500/50 shadow-green-500/20"
                           : customer.status === "blocked"
-                          ? "bg-red-900/30 text-red-300 border border-red-800"
+                          ? "bg-gradient-to-r from-red-500/30 to-orange-500/30 text-red-300 border border-red-500/50 shadow-red-500/20"
                           : customer.status === "inactive"
-                          ? "bg-yellow-900/30 text-yellow-300 border border-yellow-800"
-                          : "bg-gray-900/30 text-gray-300 border border-gray-700"
+                          ? "bg-gradient-to-r from-yellow-500/30 to-amber-500/30 text-yellow-300 border border-yellow-500/50 shadow-yellow-500/20"
+                          : "bg-gradient-to-r from-gray-500/30 to-slate-500/30 text-gray-300 border border-gray-500/50"
                       }`}
                     >
                       {customer.status}
-                    </span>
+                    </motion.span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Last Contact</span>
-                    <span className="text-sm">{customer.lastActivity}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 font-medium">Last Contact</span>
+                    <span className="text-sm font-semibold text-gray-300">{customer.lastActivity}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Member Since</span>
-                    <span className="text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 font-medium">Member Since</span>
+                    <span className="text-sm font-semibold text-gray-300">
                       {new Date(customer.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Quick Actions */}
-            <div className={CARD}>
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-gradient-to-br from-blue-500/5 to-cyan-500/5 border border-blue-500/20 rounded-lg shadow-xl shadow-blue-500/5"
+            >
               <div className="p-6">
-                <h2 className="text-lg font-medium mb-4">Quick Actions</h2>
+                <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 mb-6">
+                  Quick Actions
+                </h2>
                 <div className="space-y-3">
                   <Link
                     to={`/chats?customer=${customer.id}`}
-                    className={`${BTN} w-full text-center block bg-blue-900/20 border-blue-800 text-blue-200 hover:bg-blue-900/30`}
                   >
-                    View Conversations ({customer.totalConversations || 0})
+                    <motion.div
+                      className="w-full text-center px-4 py-3 rounded-lg bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30 transition-all shadow-lg shadow-blue-500/10 font-semibold"
+                      whileHover={{ scale: 1.02, x: 4 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      View Conversations ({customer.totalConversations || 0})
+                    </motion.div>
                   </Link>
                   <Link
                     to={`/tickets?customer=${customer.id}`}
-                    className={`${BTN} w-full text-center block`}
                   >
-                    View Tickets
+                    <motion.div
+                      className="w-full text-center px-4 py-3 rounded-lg bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30 text-blue-300 hover:from-blue-500/30 hover:to-blue-600/30 transition-all shadow-lg shadow-blue-500/10 font-semibold"
+                      whileHover={{ scale: 1.02, x: 4 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      View Tickets
+                    </motion.div>
                   </Link>
-                  <button
-                    className={`${BTN} w-full text-red-300 border-red-800 hover:bg-red-900/20`}
+                  <motion.button
+                    className="w-full px-4 py-3 rounded-lg bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30 text-red-300 hover:from-red-500/30 hover:to-orange-500/30 transition-all shadow-lg shadow-red-500/10 font-semibold"
                     title="Block this customer from accessing services"
+                    whileHover={{ scale: 1.02, x: 4 }}
+                    whileTap={{ scale: 0.98 }}
                   >
                     Block Customer
-                  </button>
+                  </motion.button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

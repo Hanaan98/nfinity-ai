@@ -1,6 +1,7 @@
 // src/pages/Orders.jsx
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { useOrders } from "../hooks/useOrders";
 import {
   OrdersTableSkeleton,
@@ -193,74 +194,95 @@ export default function Orders({ adminBaseUrl }) {
   }
 
   return (
-    <div className="w-full min-h-full bg-[#151a1e] text-gray-100">
+    <div className="w-full min-h-full bg-[#151a1e] text-gray-100 pl-6 pt-6">
       <div className="flex">
         {/* Left sticky rail */}
-        <aside
+        <motion.aside
           className={`hidden md:block sticky top-0 self-start h-[calc(100vh-0px)] w-64 pr-6 mr-6 ${borderClass}`}
           style={{ borderRightWidth: 1 }}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
         >
           <div className="rounded-lg overflow-hidden h-full">
-            <div className="px-4 py-3 text-sm font-semibold text-gray-300">
+            <div className="px-4 py-4 text-sm font-bold text-gray-200 border-b border-[#293239]">
               Order lists
             </div>
 
-            <nav className="px-4 pb-4 space-y-2">
-              <button className="w-full text-left px-3 py-2 rounded-md text-sm bg-blue-900/30 text-blue-100 border border-blue-800">
+            <nav className="px-4 py-4 space-y-2">
+              <motion.button 
+                whileHover={{ x: 4 }}
+                className="w-full text-left px-4 py-3 rounded-lg text-sm bg-gradient-to-br from-blue-900/40 to-blue-800/30 text-blue-200 border border-blue-700/50 shadow-lg shadow-blue-500/20 font-semibold"
+              >
                 All orders
-              </button>
+              </motion.button>
             </nav>
 
-            <div className="mt-auto px-4 py-3 text-xs text-gray-500">
-              Connected to API endpoint
+            <div className="mt-auto px-4 py-3 text-xs text-gray-500 border-t border-[#293239]">
+              <div className="flex items-center gap-2">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-2 h-2 rounded-full bg-green-500 shadow-lg shadow-green-500/50"
+                />
+                Connected to API endpoint
+              </div>
             </div>
           </div>
-        </aside>
+        </motion.aside>
 
         {/* Main column */}
-        <section className="flex-1 min-w-0">
+        <section className="flex-1 min-w-0 p-6">
           {/* Header */}
-          <div className="flex items-start justify-between">
+          <motion.div 
+            className="flex items-start justify-between"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
             <div>
-              <h1 className="text-2xl font-semibold">Orders</h1>
-              <p className="mt-1 text-sm text-gray-400">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-100 to-gray-300 bg-clip-text text-transparent">Orders</h1>
+              <p className="mt-2 text-sm text-gray-400">
                 Search and manage orders. Use{" "}
-                <span className="text-gray-300">View in Shopify</span> to open
+                <span className="text-blue-400 font-semibold">View in Shopify</span> to open
                 the order in Admin.
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* Toolbar */}
           <div className="mt-6 flex flex-wrap items-center gap-3">
             {/* Search */}
             <div className="relative w-full max-w-lg">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
                 <svg
                   width="18"
                   height="18"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="1.7"
+                  strokeWidth="2"
                 >
                   <circle cx="11" cy="11" r="7" />
                   <path d="M21 21l-4.3-4.3" />
                 </svg>
               </span>
-              <input
+              <motion.input
+                whileFocus={{ scale: 1.01 }}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="w-full pl-10 pr-3 h-10 rounded-md bg-[#1d2328] border border-[#293239] text-sm text-gray-200 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-blue-500/40"
+                className="w-full pl-10 pr-4 h-11 rounded-lg bg-gradient-to-br from-[#1d2328] to-[#1a1f24] border border-[#293239] text-sm text-gray-200 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner"
                 placeholder="Search by order #, customer, email, status, or tag…"
               />
             </div>
 
             {/* Refresh button */}
-            <button
+            <motion.button
+              whileHover={{ scale: loading ? 1 : 1.05 }}
+              whileTap={{ scale: loading ? 1 : 0.95 }}
               onClick={refresh}
               disabled={loading}
-              className={`px-3 h-10 text-xs rounded-md border border-[#293239] bg-[#1a2126] text-gray-300 hover:bg-white/5 flex items-center gap-1.5 transition-all duration-200 ${
+              className={`px-4 h-11 text-xs rounded-lg border border-[#293239] bg-gradient-to-br from-[#1a2126] to-[#151b20] text-gray-300 hover:bg-white/5 flex items-center gap-2 transition-all duration-200 font-medium shadow-lg ${
                 loading ? "opacity-50 cursor-not-allowed" : ""
               }`}
               title="Refresh orders"
@@ -268,9 +290,11 @@ export default function Orders({ adminBaseUrl }) {
               {loading ? (
                 <Spinner size="sm" />
               ) : (
-                <svg
-                  width="14"
-                  height="14"
+                <motion.svg
+                  animate={{ rotate: loading ? 360 : 0 }}
+                  transition={{ duration: 1, repeat: loading ? Infinity : 0, ease: "linear" }}
+                  width="15"
+                  height="15"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -280,15 +304,17 @@ export default function Orders({ adminBaseUrl }) {
                   <path d="M21 3v5h-5" />
                   <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
                   <path d="M3 21v-5h5" />
-                </svg>
+                </motion.svg>
               )}
               {loading ? "Refreshing..." : "Refresh"}
-            </button>
+            </motion.button>
 
             {/* Sort */}
             <div className="flex items-center gap-2">
-              <button
-                className={BTN}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={`${BTN} font-medium`}
                 onClick={() => toggleSort("CREATED_AT")}
                 title="Sort by date"
               >
@@ -298,9 +324,11 @@ export default function Orders({ adminBaseUrl }) {
                     ? "↑"
                     : "↓"
                   : ""}
-              </button>
-              <button
-                className={BTN}
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={`${BTN} font-medium`}
                 onClick={() => toggleSort("ORDER_NUMBER")}
                 title="Sort by order number"
               >
@@ -310,14 +338,20 @@ export default function Orders({ adminBaseUrl }) {
                     ? "↑"
                     : "↓"
                   : ""}
-              </button>
+              </motion.button>
             </div>
           </div>
 
           {/* Count */}
-          <div className="mt-4 text-sm text-gray-400">
-            {pagination.totalOrders?.toLocaleString() || "0"} orders
-          </div>
+          <motion.div 
+            className="mt-4 text-sm font-semibold"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <span className="text-blue-400">{pagination.totalOrders?.toLocaleString() || "0"}</span>
+            <span className="text-gray-400"> orders</span>
+          </motion.div>
 
           {/* Table */}
           {loading ? (
@@ -325,7 +359,12 @@ export default function Orders({ adminBaseUrl }) {
               <OrdersTableSkeleton rows={8} />
             </div>
           ) : (
-            <div className="mt-3 rounded-lg overflow-hidden animate-fade-in-up">
+            <motion.div 
+              className="mt-3 rounded-lg overflow-hidden"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
               {/* head */}
               <div
                 className={`px-4 py-3 text-xs uppercase tracking-wide text-gray-400 border-b ${borderClass}`}
@@ -369,13 +408,10 @@ export default function Orders({ adminBaseUrl }) {
 
               {/* body */}
               <ul className={`divide-y ${borderClass}`}>
-                {displayOrders.map((order, index) => (
-                  <div
-                    key={order.id}
-                    className="animate-fade-in-up"
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  >
+                <AnimatePresence mode="popLayout">
+                  {displayOrders.map((order, index) => (
                     <OrderRow
+                      key={order.id}
                       order={order}
                       checked={!!checked[order.id]}
                       onCheck={(checked) =>
@@ -383,8 +419,8 @@ export default function Orders({ adminBaseUrl }) {
                       }
                       adminBaseUrl={adminBaseUrl}
                     />
-                  </div>
-                ))}
+                  ))}
+                </AnimatePresence>
 
                 {!loading && displayOrders.length === 0 && (
                   <li className="px-4 py-12">
@@ -411,42 +447,52 @@ export default function Orders({ adminBaseUrl }) {
               </ul>
 
               {/* footer / pagination */}
-              <div className="px-4 py-3 flex items-center justify-between border-t border-[#293239]">
-                <p className="text-xs text-gray-400">
-                  Showing {displayOrders.length} of{" "}
-                  {pagination.totalOrders || displayOrders.length} AI orders on
+              <motion.div 
+                className="px-4 py-4 flex items-center justify-between border-t border-[#293239] bg-[#151a1e]/50"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <p className="text-xs text-gray-400 font-medium">
+                  Showing <span className="text-blue-400 font-bold">{displayOrders.length}</span> of{" "}
+                  <span className="text-blue-400 font-bold">{pagination.totalOrders || displayOrders.length}</span> AI orders on
                   this page
                 </p>
                 <div className="flex items-center gap-2">
-                  <button
+                  <motion.button
+                    whileHover={{ scale: pagination.currentPage > 1 ? 1.05 : 1 }}
+                    whileTap={{ scale: pagination.currentPage > 1 ? 0.95 : 1 }}
                     className={`${BTN} transition-all duration-200 ${
                       pagination.currentPage <= 1
                         ? "opacity-40 cursor-not-allowed"
-                        : "hover:scale-105"
+                        : "hover:bg-white/10"
                     }`}
                     onClick={() => handlePageChange(pagination.currentPage - 1)}
                     disabled={pagination.currentPage <= 1}
                   >
                     Prev
-                  </button>
-                  <span className="text-xs text-gray-400">
-                    Page {pagination.currentPage} /{" "}
-                    {Math.max(1, pagination.totalPages)}
+                  </motion.button>
+                  <span className="text-xs px-3 py-1.5 rounded-lg bg-[#1a2126] border border-[#293239] font-semibold">
+                    <span className="text-blue-400">{pagination.currentPage}</span>
+                    <span className="text-gray-500 mx-1">/</span>
+                    <span className="text-gray-300">{Math.max(1, pagination.totalPages)}</span>
                   </span>
-                  <button
+                  <motion.button
+                    whileHover={{ scale: pagination.currentPage < pagination.totalPages ? 1.05 : 1 }}
+                    whileTap={{ scale: pagination.currentPage < pagination.totalPages ? 0.95 : 1 }}
                     className={`${BTN} transition-all duration-200 ${
                       pagination.currentPage >= pagination.totalPages
                         ? "opacity-40 cursor-not-allowed"
-                        : "hover:scale-105"
+                        : "hover:bg-white/10"
                     }`}
                     onClick={() => handlePageChange(pagination.currentPage + 1)}
                     disabled={pagination.currentPage >= pagination.totalPages}
                   >
                     Next
-                  </button>
+                  </motion.button>
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           )}
         </section>
       </div>
@@ -467,28 +513,36 @@ function OrderRow({ order, checked, onCheck, adminBaseUrl }) {
   const currency = order.totalPrice?.currency || order.currency || "USD";
 
   return (
-    <li className={`px-4 py-3 hover:bg-white/2 border-b ${borderClass}`}>
+    <motion.li 
+      className={`px-4 py-4 hover:bg-gradient-to-r hover:from-blue-500/5 hover:to-transparent border-b ${borderClass} transition-all cursor-pointer group`}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ x: 4 }}
+      transition={{ duration: 0.2 }}
+    >
       <div className="grid grid-cols-12 items-center">
         {/* checkbox + order */}
         <div className="col-span-3 md:col-span-3 flex items-center gap-3 min-w-0">
           <input
             type="checkbox"
-            className="h-4 w-4 rounded border-[#293239] bg-transparent"
+            className="h-4 w-4 rounded border-[#293239] bg-transparent cursor-pointer"
             checked={checked}
             onChange={(e) => onCheck(e.target.checked)}
             aria-label={`Select ${order.orderNumber || order.name}`}
           />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="truncate text-sm text-blue-400">
+              <span className="truncate text-sm font-semibold text-blue-400 group-hover:text-blue-300 transition-colors">
                 {formatOrderNumber(order.orderNumber || order.name)}
               </span>
               {adminUrl ? (
-                <a
+                <motion.a
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   href={adminUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-[#293239] bg-white/5 text-gray-300 hover:bg-white/10 transition-colors"
+                  className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all shadow-sm"
                   title="View in Shopify Admin"
                 >
                   <svg
@@ -496,17 +550,17 @@ function OrderRow({ order, checked, onCheck, adminBaseUrl }) {
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="1.8"
+                    strokeWidth="2"
                   >
                     <path d="M18 13v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                     <path d="M15 3h6v6" />
                     <path d="M10 14L21 3" />
                   </svg>
                   View
-                </a>
+                </motion.a>
               ) : (
                 <span
-                  className="text-[11px] px-1.5 py-0.5 text-gray-500"
+                  className="text-[11px] px-2 py-1 text-gray-500"
                   title="Shopify shop URL not configured"
                 >
                   No link
@@ -515,7 +569,7 @@ function OrderRow({ order, checked, onCheck, adminBaseUrl }) {
             </div>
             <div className="text-[11px] text-gray-500">
               Shopify ID:{" "}
-              <span className="text-gray-400">
+              <span className="text-gray-400 font-mono">
                 {order.shopifyOrderId || order.shopifyId || "N/A"}
               </span>
             </div>
@@ -524,43 +578,53 @@ function OrderRow({ order, checked, onCheck, adminBaseUrl }) {
 
         {/* customer */}
         <div className="col-span-4 md:col-span-4 min-w-0">
-          <div className="truncate text-sm text-gray-200">
-            {order.customerName || order.customer || "Unknown Customer"}
+          <div className="truncate text-sm font-medium text-gray-200">
+            {order.customerName || order.customer?.fullName || order.customer?.name || "Unknown Customer"}
           </div>
           <div className="truncate text-xs text-gray-400">
-            {order.customerEmail || order.email || "No email"}
+            {order.customerEmail || order.customer?.email || order.email || "No email"}
           </div>
         </div>
 
         {/* total */}
         <div className="col-span-2 md:col-span-2">
-          <div className="text-sm text-gray-200">{formattedPrice}</div>
+          <div className="text-sm font-bold text-green-400">{formattedPrice}</div>
         </div>
 
         {/* status + created */}
         <div className="col-span-3 md:col-span-3">
           <div className="flex flex-wrap gap-1 mb-1">
-            <span className={`${CHIP} ${getStatusColor(order.paymentStatus)}`}>
+            <motion.span 
+              whileHover={{ scale: 1.05 }}
+              className={`${CHIP} ${getStatusColor(order.paymentStatus)} font-semibold`}
+            >
               pay: {order.paymentStatus || "unknown"}
-            </span>
-            <span
-              className={`${CHIP} ${getStatusColor(order.fulfillmentStatus)}`}
+            </motion.span>
+            <motion.span
+              whileHover={{ scale: 1.05 }}
+              className={`${CHIP} ${getStatusColor(order.fulfillmentStatus)} font-semibold`}
             >
               fulfill: {order.fulfillmentStatus || "unknown"}
-            </span>
+            </motion.span>
           </div>
           <div className="flex flex-wrap gap-1 mb-1">
-            {(order.tags || []).slice(0, 2).map((tag) => (
-              <span key={tag} className={CHIP}>
+            {(order.tags || []).slice(0, 2).map((tag, index) => (
+              <motion.span 
+                key={tag} 
+                className={`${CHIP} text-blue-400`}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.05 }}
+              >
                 {tag}
-              </span>
+              </motion.span>
             ))}
           </div>
-          <div className="text-xs text-gray-400">
+          <div className="text-xs text-gray-400 font-medium">
             {formatDate(order.createdAt)}
           </div>
         </div>
       </div>
-    </li>
+    </motion.li>
   );
 }

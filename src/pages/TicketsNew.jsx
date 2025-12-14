@@ -67,6 +67,7 @@ export default function Tickets() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
+  const [unreadOnly, setUnreadOnly] = useState(false);
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState("DESC");
   const [checked, setChecked] = useState({});
@@ -75,7 +76,7 @@ export default function Tickets() {
 
   // Fetch tickets with filters
   const {
-    tickets,
+    tickets: allTickets,
     loading,
     error,
     pagination,
@@ -94,6 +95,11 @@ export default function Tickets() {
     sortBy,
     sortOrder,
   });
+
+  // Filter for unread tickets on frontend
+  const tickets = unreadOnly 
+    ? allTickets.filter(t => t.unread_count > 0)
+    : allTickets;
 
   // Update page when pagination changes
   useEffect(() => {
@@ -173,10 +179,11 @@ export default function Tickets() {
               <button
                 onClick={() => {
                   setStatusFilter("");
+                  setUnreadOnly(false);
                   clearSelection();
                 }}
                 className={`w-full text-left px-3 py-2 rounded-md text-sm ${
-                  !statusFilter
+                  !statusFilter && !unreadOnly
                     ? "bg-blue-900/30 text-blue-100 border border-blue-800"
                     : "text-gray-300 hover:bg-white/5 border border-transparent"
                 }`}
@@ -186,11 +193,30 @@ export default function Tickets() {
 
               <button
                 onClick={() => {
+                  setStatusFilter("");
+                  setUnreadOnly(true);
+                  clearSelection();
+                }}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center justify-between ${
+                  unreadOnly
+                    ? "bg-red-900/30 text-red-100 border border-red-800"
+                    : "text-gray-300 hover:bg-white/5 border border-transparent"
+                }`}
+              >
+                <span>Unread Tickets</span>
+                <span className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-red-500 rounded-full">
+                  !
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
                   setStatusFilter("open");
+                  setUnreadOnly(false);
                   clearSelection();
                 }}
                 className={`w-full text-left px-3 py-2 rounded-md text-sm ${
-                  statusFilter === "open"
+                  statusFilter === "open" && !unreadOnly
                     ? "bg-blue-900/30 text-blue-100 border border-blue-800"
                     : "text-gray-300 hover:bg-white/5 border border-transparent"
                 }`}
@@ -201,10 +227,11 @@ export default function Tickets() {
               <button
                 onClick={() => {
                   setStatusFilter("pending");
+                  setUnreadOnly(false);
                   clearSelection();
                 }}
                 className={`w-full text-left px-3 py-2 rounded-md text-sm ${
-                  statusFilter === "pending"
+                  statusFilter === "pending" && !unreadOnly
                     ? "bg-blue-900/30 text-blue-100 border border-blue-800"
                     : "text-gray-300 hover:bg-white/5 border border-transparent"
                 }`}
@@ -215,10 +242,11 @@ export default function Tickets() {
               <button
                 onClick={() => {
                   setStatusFilter("resolved");
+                  setUnreadOnly(false);
                   clearSelection();
                 }}
                 className={`w-full text-left px-3 py-2 rounded-md text-sm ${
-                  statusFilter === "resolved"
+                  statusFilter === "resolved" && !unreadOnly
                     ? "bg-blue-900/30 text-blue-100 border border-blue-800"
                     : "text-gray-300 hover:bg-white/5 border border-transparent"
                 }`}
@@ -352,7 +380,11 @@ export default function Tickets() {
                 {tickets.map((ticket) => (
                   <li
                     key={ticket.id}
-                    className={`px-4 py-3 hover:bg-white/5 cursor-pointer transition-colors ${borderClass}`}
+                    className={`px-4 py-3 cursor-pointer transition-colors ${borderClass} ${
+                      ticket.unread_count > 0 
+                        ? 'bg-red-500/10 hover:bg-red-500/15 border-l-4 border-l-red-500' 
+                        : 'hover:bg-white/5'
+                    }`}
                     onClick={() => viewTicket(ticket.ticket_number)}
                   >
                     <div className="grid grid-cols-12 gap-4 items-center">
@@ -373,9 +405,16 @@ export default function Tickets() {
                           aria-label={`Select ticket ${ticket.ticket_number}`}
                         />
                         <StatusPill status={ticket.status} />
-                        <span className="truncate text-sm text-blue-400 font-medium">
-                          {ticket.ticket_number}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm text-blue-400 font-medium">
+                            {ticket.ticket_number}
+                          </span>
+                          {ticket.unread_count > 0 && (
+                            <span className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-red-500 rounded-full">
+                              {ticket.unread_count}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* shopify order id */}

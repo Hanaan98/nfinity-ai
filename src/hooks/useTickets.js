@@ -120,9 +120,37 @@ export function useTickets(initialFilters = {}) {
     });
   }, []);
 
-  const refresh = useCallback(() => {
-    fetchTickets();
-  }, [fetchTickets]);
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await ticketApi.getAllTickets(filters);
+
+      if (response.success) {
+        const ticketsArray = Array.isArray(response.data)
+          ? response.data
+          : response.data?.tickets || response.tickets || [];
+
+        setTickets(ticketsArray);
+        setPagination(
+          response.pagination || {
+            page: filters.page,
+            limit: filters.limit,
+            total: 0,
+            totalPages: 0,
+          }
+        );
+      } else {
+        throw new Error(response.error || "Failed to fetch tickets");
+      }
+    } catch (err) {
+      setError(err.message || "Failed to load tickets");
+      setTickets([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
 
   return {
     tickets,
