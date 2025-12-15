@@ -43,7 +43,15 @@ export function useChatMessages(sessionId) {
           let content = msg.content;
           let originalContent = msg.content;
 
-          if (typeof msg.content === "object" && msg.content !== null) {
+          // Handle OpenAI format: content is an array with type/text structure
+          if (Array.isArray(msg.content)) {
+            const textContent = msg.content.find(c => c.type === 'text');
+            if (textContent && textContent.text && textContent.text.value) {
+              content = textContent.text.value;
+            } else {
+              content = JSON.stringify(msg.content, null, 2);
+            }
+          } else if (typeof msg.content === "object" && msg.content !== null) {
             // Handle complex response formats (product recommendations, etc.)
             if (msg.content.message) {
               content = msg.content.message;

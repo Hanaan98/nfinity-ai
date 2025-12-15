@@ -8,6 +8,7 @@ import AnimatedStatCard from "../components/AnimatedStatCard";
 import AreaChart from "../components/charts/AreaChart";
 import BarChart from "../components/charts/BarChart";
 import InsightCard from "../components/InsightCard";
+import CustomSelect from "../components/CustomSelect";
 
 const cardBase =
   "bg-[#1d2328] border border-[#293239] rounded-lg transition-all duration-200 hover:border-[#3a434a]";
@@ -189,11 +190,19 @@ export default function Dashboard() {
 
   // Calculate date range
   const getDateRange = (days) => {
-    const endDate = new Date().toISOString().split("T")[0];
-    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-    return { startDate, endDate };
+    // Get current date in local timezone at end of day
+    const now = new Date();
+    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    
+    // Calculate start date
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - (days - 1)); // Subtract days-1 to include today
+    startDate.setHours(0, 0, 0, 0);
+    
+    return { 
+      startDate: startDate.toISOString().split("T")[0],
+      endDate: endDate.toISOString().split("T")[0]
+    };
   };
 
   // Fetch dashboard data
@@ -214,6 +223,10 @@ export default function Dashboard() {
 
       // Extract data from the API response structure
       const dashboardData = dashboard.success ? dashboard.data : dashboard;
+      
+      console.log("Extracted dashboardData:", dashboardData);
+      console.log("AI Chats:", dashboardData.aiChats);
+      console.log("Human Escalations:", dashboardData.humanEscalations);
 
       // Fetch customer statistics for the 4th KPI card
       try {
@@ -416,8 +429,8 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [fetchRecentActivity]);
 
-  const handleDateRangeChange = (e) => {
-    setDateRange(e.target.value);
+  const handleDateRangeChange = (value) => {
+    setDateRange(value);
   };
 
   // Handle clicking on a chat item to navigate to chat details
@@ -450,30 +463,28 @@ export default function Dashboard() {
         },
         {
           label: "Total Queries",
-          value: dashboardData.totalMessages?.total?.toString() || dashboardData.aiChats?.total?.toString() || "0",
-          sub: dashboardData.totalMessages?.subtitle || "User queries received",
+          value: dashboardData.totalQueries?.total?.toString() || "0",
+          sub: `Avg ${dashboardData.totalQueries?.averagePerChat || 0} per chat`,
           trend:
-            dashboardData.totalMessages?.total > 0 || dashboardData.aiChats?.total > 0
-              ? { type: "up", value: "+" + (dashboardData.totalMessages?.total || dashboardData.aiChats?.total || 0) }
+            dashboardData.totalQueries?.total > 0
+              ? { type: "up", value: "+" + dashboardData.totalQueries.total }
               : null,
           color: "#f59e0b",
           sparklineData: null
         },
         {
-          label: "Orders via AI",
-          value: dashboardData.ordersViaAI?.totalRevenue || "$0",
-          sub: dashboardData.ordersViaAI?.period || "Last 7 days",
+          label: "Open Tickets",
+          value: dashboardData.humanEscalations?.activeTickets?.toString() || "0",
+          sub: "Need attention",
           trend:
-            dashboardData.ordersViaAI?.orderCount > 0
+            dashboardData.humanEscalations?.total > 0
               ? {
-                  type: "up",
-                  value: dashboardData.ordersViaAI.orderCount + " orders",
+                  type: "neutral",
+                  value: dashboardData.humanEscalations.total + " total this period",
                 }
               : null,
-          color: "#10b981",
-          sparklineData: chartData.length > 0
-            ? chartData.slice(-7).map(d => ({ value: d.revenue }))
-            : null
+          color: "#f59e0b",
+          sparklineData: null
         },
         {
           label: "Total Customers",
@@ -531,18 +542,7 @@ export default function Dashboard() {
       });
     }
 
-    const activeChats = recentActivity.filter(a => a.status === 'active').length;
-    if (activeChats > 3) {
-      insights.push({
-        type: 'urgent',
-        title: 'Active Chats Need Attention',
-        description: `${activeChats} customers are waiting for responses. Quick action recommended.`,
-        action: {
-          label: 'Respond now',
-          onClick: () => navigate('/chats?filter=active')
-        }
-      });
-    }
+    // Note: Removed 'Active Chats Need Attention' alert since AI handles all chats automatically
 
     return insights.slice(0, 3); // Max 3 insights
   };
@@ -561,16 +561,17 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center gap-3">
-          <select
+          <CustomSelect
             value={dateRange}
             onChange={handleDateRangeChange}
-            className="px-4 py-2 rounded-lg bg-[#1d2328] border border-[#293239] text-sm text-gray-300 cursor-pointer hover:border-[#3a434a] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-          >
-            <option value="1">Today</option>
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 3 months</option>
-          </select>
+            disabled={loading}
+            options={[
+              { value: "1", label: "Today" },
+              { value: "7", label: "Last 7 days" },
+              { value: "30", label: "Last 30 days" },
+              { value: "90", label: "Last 3 months" },
+            ]}
+          />
           <button
             onClick={fetchDashboardData}
             disabled={loading}
