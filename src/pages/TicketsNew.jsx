@@ -419,11 +419,21 @@ export default function Tickets() {
 
                       {/* shopify order id */}
                       <div className="col-span-3 md:col-span-2 min-w-0">
-                        <span className="truncate text-sm text-gray-300">
-                          {ticket.shopify_order_name ||
-                            ticket.shopify_order_id ||
-                            "-"}
-                        </span>
+                        {ticket.shopify_order_name && ticket.shopify_order_id ? (
+                          <a
+                            href={`https://admin.shopify.com/store/nfinityinsiders/orders/${ticket.shopify_order_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="truncate text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {ticket.shopify_order_name}
+                          </a>
+                        ) : (
+                          <span className="truncate text-sm text-gray-300">
+                            {ticket.shopify_order_name || ticket.shopify_order_id || "-"}
+                          </span>
+                        )}
                       </div>
 
                       {/* subject */}

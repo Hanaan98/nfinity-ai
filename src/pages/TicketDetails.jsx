@@ -2300,6 +2300,32 @@ export default function TicketDetails() {
                 )}
               </div>
 
+              {/* Shopify Order */}
+              {currentTicket?.shopify_order_name && (
+                <div className="p-4 border-b border-[#293239]">
+                  <h4 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">
+                    Shopify Order
+                  </h4>
+                  {currentTicket?.shopify_order_id ? (
+                    <a
+                      href={`https://admin.shopify.com/store/nfinityinsiders/orders/${currentTicket.shopify_order_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                    >
+                      <span>{currentTicket.shopify_order_name}</span>
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <path d="M15 3h6v6" />
+                        <path d="M10 14L21 3" />
+                      </svg>
+                    </a>
+                  ) : (
+                    <span className="text-sm text-gray-300">{currentTicket.shopify_order_name}</span>
+                  )}
+                </div>
+              )}
+
               {/* Tags */}
               <div className="p-4 border-b border-[#293239]">
                 <h4 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">
